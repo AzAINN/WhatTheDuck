@@ -73,11 +73,23 @@ mc_results.sort(key=lambda x: x.num_samples)
 num_samples_list, var_results, errors = zip(*[(r.num_samples, r.var_estimate, r.error) for r in mc_results])
 
 # O(1/sqrt(N)) relation
-witness_top = np.max(errors * np.sqrt(num_samples_list))    # ensures all errors <= witness / sqrt(N)
-witness_bottom = np.min(errors * np.sqrt(num_samples_list)) # ensures all errors >= witness / sqrt(N)
+witness_top_n = np.max(errors * np.sqrt(num_samples_list))    # ensures all errors <= witness / sqrt(N)
+witness_bottom_n = np.min(errors * np.sqrt(num_samples_list)) # ensures all errors >= witness / sqrt(N)
 
-ref_line_top = witness_top / np.sqrt(num_samples_list)
-ref_line_bottom = witness_bottom / np.sqrt(num_samples_list)
+ref_line_top_n = witness_top_n / np.sqrt(num_samples_list)
+ref_line_bottom_n = witness_bottom_n / np.sqrt(num_samples_list)
+
+# O(1/ε²) relation
+inv_error_sq = 1 / np.array(errors)**2
+num_samples_array = np.array(num_samples_list)
+
+witness_top_e2 = np.max(num_samples_array / inv_error_sq)    # ensures all N <= witness * (1/ε²)
+witness_bottom_e2 = np.min(num_samples_array / inv_error_sq) # ensures all
+
+ref_line_top_e2 = witness_top_e2 * inv_error_sq
+ref_line_bottom_e2 = witness_bottom_e2 * inv_error_sq
+
+
 
 # Plot convergence and demonstrate O(1/ε²) scaling - d ------------------------#
 
@@ -102,12 +114,10 @@ plt.ylabel("Absolute Error")
 plt.title("Monte Carlo Error Scaling")
 
 # Reference lines for O(1/sqrt(N))
-plt.plot(num_samples_list, ref_line_top, 'k--', label=r'O(1/$\sqrt{{N}}$) upper bound')
-plt.plot(num_samples_list, ref_line_bottom, 'k-.', label=r'Ω(1/$\sqrt{{N}}$) lower bound')
+plt.plot(num_samples_list, ref_line_top_n, 'k--', label=r'O(1/$\sqrt{{N}}$) upper bound')
+plt.plot(num_samples_list, ref_line_bottom_n, 'k-.', label=r'Ω(1/$\sqrt{{N}}$) lower bound')
 
 # Plot 3: O(1/E^2) scaling
-inv_error_sq = 1 / np.array(errors)**2
-
 plt.figure(figsize=(6,4))
 plt.plot(inv_error_sq, num_samples_list, marker='o', label='Observed N vs 1/ε²')
 plt.xscale('log')
@@ -117,11 +127,12 @@ plt.ylabel("Number of Samples N")
 plt.title("Monte Carlo Sample Requirement vs 1/ε²")
 plt.grid(True, which='both', ls='--', alpha=0.5)
 
-# Reference line: 1/ε²
-slope = num_samples_list[-1] / inv_error_sq[-1]
-plt.plot(inv_error_sq, slope*inv_error_sq, 'r--', label='Reference O(1/ε²)')
+# Reference lines for O(1/ε²)
+plt.plot(inv_error_sq, ref_line_top_e2, 'k--', label=r'O(1/ε²) upper bound')
+plt.plot(inv_error_sq, ref_line_bottom_e2, 'k-.', label=r'Ω(1/ε²) lower bound')
 
 plt.grid(True, which='both', ls='--', alpha=0.5)
 plt.legend()
+
 
 plt.show()
