@@ -8,3 +8,4 @@ cudaq
 pyqasm
 openqasm3
 qbraid
+optuna
