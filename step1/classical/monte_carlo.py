@@ -19,23 +19,7 @@ num_samples_list = np.unique(
 
 CPU_WORKERS = 10
 
-# # simulate_returns - a --------------------------------------------------------#			
-# def simulate_returns(mu, sigma, num_samples):
-#     """
-#     Simulate daily returns from a Gaussian distribution.
-#     """
-#     return np.random.normal(mu, sigma, num_samples)
-
-# # compute_var - b -------------------------------------------------------------#
-# def compute_var(returns, confidence_level):
-#     """
-#     Compute classical Monte Carlo Value at Risk (VaR) at given confidence level.
-#     VaR is defined as the alpha-quantile of losses (positive number).
-#     """
-#     losses = -returns  # convert returns to losses
-#     var = np.quantile(losses, confidence_level)
-#     return var
-
+# Simulate returns ------------------------------------------------------------#
 @dataclass
 class MonteCarloResult:
     num_samples: int
@@ -88,6 +72,13 @@ with ProcessPoolExecutor(max_workers=CPU_WORKERS) as executor:
 mc_results.sort(key=lambda x: x.num_samples)
 num_samples_list, var_results, errors = zip(*[(r.num_samples, r.var_estimate, r.error) for r in mc_results])
 
+# O(1/sqrt(N)) relation
+witness_top = np.max(errors * np.sqrt(num_samples_list))    # ensures all errors <= witness / sqrt(N)
+witness_bottom = np.min(errors * np.sqrt(num_samples_list)) # ensures all errors >= witness / sqrt(N)
+
+ref_line_top = witness_top / np.sqrt(num_samples_list)
+ref_line_bottom = witness_bottom / np.sqrt(num_samples_list)
+
 # Plot convergence and demonstrate O(1/ε²) scaling - d ------------------------#
 plt.figure(figsize=(12,5))
 
@@ -111,15 +102,10 @@ plt.xlabel("Number of Samples (log scale)")
 plt.ylabel("Absolute Error")
 plt.title("Monte Carlo Error Scaling")
 
-# Reference line: O(1/sqrt(N)) relation
-ref_line_sqrt = errors[0] * np.sqrt(num_samples_list[0]) / np.sqrt(np.array(num_samples_list))
-plt.plot(num_samples_list, ref_line_sqrt, 'k--', label=r'O(1/$\sqrt{N}$)')
+# Reference lines for O(1/sqrt(N))
+plt.plot(num_samples_list, ref_line_top, 'k--', label=r'O(1/$\sqrt{{N}}$) upper bound')
+plt.plot(num_samples_list, ref_line_bottom, 'k-.', label=r'Ω(1/$\sqrt{{N}}$) lower bound')
 
-# Reference line: samples vs precision ε (O(1/ε²))
-# eps_list = np.array(errors)
-# ref_line_eps = num_samples_list[0] * (eps_list[0] / eps_list)**2
-# plt.plot(num_samples_list, eps_list, 'o', alpha=0)  # just to align data points
-# plt.plot(num_samples_list, ref_line_eps, 'g--', label=r'O(1/$\varepsilon^2$)')
 
 plt.grid(True, which='both', ls='--', alpha=0.5)
 plt.legend()
