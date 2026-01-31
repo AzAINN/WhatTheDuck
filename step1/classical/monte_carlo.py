@@ -12,7 +12,7 @@ sigma = 0.13  # daily volatility (2%)
 confidence_level = 0.95
 # num_samples_list = [n for n in range(10, 10**8 + 1, 100)]
 num_samples_max = 10**8
-num_samples_count = 40
+num_samples_count = 500
 num_samples_list = np.unique(
     np.logspace(1, np.log10(num_samples_max), num_samples_count, dtype=int)
 ).tolist()  # 10, ..., 10^8
@@ -80,10 +80,9 @@ ref_line_top = witness_top / np.sqrt(num_samples_list)
 ref_line_bottom = witness_bottom / np.sqrt(num_samples_list)
 
 # Plot convergence and demonstrate O(1/ε²) scaling - d ------------------------#
-plt.figure(figsize=(12,5))
 
 # Plot 1: Convergence of VaR estimate
-plt.subplot(3,1,1)
+plt.figure(figsize=(6,4))
 plt.plot(num_samples_list, var_results, marker='o', label='Monte Carlo VaR estimate')
 plt.axhline(y=theoretical_var, color='r', linestyle='--', label='Theoretical VaR')
 plt.xscale('log')
@@ -94,7 +93,7 @@ plt.grid(True, which='both', ls='--', alpha=0.5)
 plt.legend()
 
 # Plot 2: Error scaling vs samples
-plt.subplot(3,1,2)
+plt.figure(figsize=(6,4))
 plt.plot(num_samples_list, errors, marker='o', label='|VaR estimate - Theory|')
 plt.xscale('log')
 plt.yscale('log')
@@ -109,7 +108,7 @@ plt.plot(num_samples_list, ref_line_bottom, 'k-.', label=r'Ω(1/$\sqrt{{N}}$) lo
 # Plot 3: O(1/E^2) scaling
 inv_error_sq = 1 / np.array(errors)**2
 
-plt.subplot(3,1,3)
+plt.figure(figsize=(6,4))
 plt.plot(inv_error_sq, num_samples_list, marker='o', label='Observed N vs 1/ε²')
 plt.xscale('log')
 plt.yscale('log')
@@ -122,9 +121,7 @@ plt.grid(True, which='both', ls='--', alpha=0.5)
 slope = num_samples_list[-1] / inv_error_sq[-1]
 plt.plot(inv_error_sq, slope*inv_error_sq, 'r--', label='Reference O(1/ε²)')
 
-
 plt.grid(True, which='both', ls='--', alpha=0.5)
 plt.legend()
 
-plt.tight_layout()
 plt.show()
