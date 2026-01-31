@@ -4,7 +4,4 @@ matplotlib
 scipy
 numpy
 optuna
-pyqasm
-openqasm3
-qbraid
 optuna
