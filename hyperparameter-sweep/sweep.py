@@ -780,8 +780,6 @@ def main():
     ap.add_argument("--dist", type=str, default="lognormal",
                     choices=["lognormal", "normal", "exponential", "pareto", "mixture", "beta"],
                     help="Distribution type")
-    ap.add_argument("--mu", type=float, default=0.7)
-    ap.add_argument("--sigma", type=float, default=0.13)
     ap.add_argument("--lam", type=float, default=1.0, help="Exponential rate")
     ap.add_argument("--shape", type=float, default=2.5, help="Pareto shape")
     ap.add_argument("--scale", type=float, default=1.0, help="Pareto scale")
