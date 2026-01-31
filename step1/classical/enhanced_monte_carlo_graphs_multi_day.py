@@ -60,6 +60,9 @@ df = 3                         # Degrees of freedom for Student-t
 skew_alpha = 7.0               # Skew parameter for skew-normal
 rho = 0.6                      # AR(1) correlation coefficient
 
+# Where modeling error is intentionally held fixed
+# You do not mix models during convergence plots.
+
 # Simulation settings
 num_samples_max = 10**7        # Maximum samples
 num_samples_count = 250        # Number of sample sizes to test
@@ -139,8 +142,8 @@ def monte_carlo_var(
     
     # Aggregate multi-day returns and compute VaR
     total_returns = daily_returns.sum(axis=1)
-    losses = -total_returns
-    var_estimate = np.quantile(losses, confidence_level)
+    # losses = -total_returns
+    var_estimate = np.quantile(total_returns, 1 - confidence_level)
     error = abs(var_estimate - theoretical_var)
     
     return MonteCarloResult(N, var_estimate, error)
@@ -211,6 +214,9 @@ for i in range(theoretical_estimations):
     print(f"  Run {i+1}/{theoretical_estimations}: VaR = {mc_run.var_estimate:.5f}")
 theoretical_var = float(np.mean(theoretical_vars))
 print(f"Theoretical VaR ({int(confidence_level*100)}%): {theoretical_var:.5f}")
+# This does two critical things:
+# It removes modeling error from the convergence study
+# It isolates probability estimation error only
 
 # Run parallel simulations
 print(f"\nRunning {len(num_samples_list)} simulations in parallel...")
@@ -300,8 +306,8 @@ if rho != 0.0 and T > 1:
     daily_returns = correlated_returns
 
 total_returns = daily_returns.sum(axis=1)
-losses = -total_returns
-var_for_plot = np.quantile(losses, confidence_level)
+# losses = -total_returns
+var_for_plot = np.quantile(total_returns, 1 - confidence_level)
 
 # Create distribution figure
 fig_dist, ax_dist = plt.subplots(figsize=(10, 6))
@@ -316,12 +322,12 @@ counts, bins, patches = ax_dist.hist(
 
 # VaR line
 ax_dist.axvline(
-    x=-var_for_plot, color=COLOR_DANGER, linestyle='--',
+    x=var_for_plot, color=COLOR_DANGER, linestyle='--',
     linewidth=2.5, alpha=0.9, label=f'VaR at {int(confidence_level*100)}%', zorder=5
 )
 
 # Shade VaR tail
-var_mask = bins[:-1] <= -var_for_plot
+var_mask = bins[:-1] <= var_for_plot
 if np.any(var_mask):
     for i, (patch, is_tail) in enumerate(zip(patches, var_mask)):
         if is_tail:
@@ -538,12 +544,12 @@ counts, bins, patches = ax_a.hist(
     density=True, edgecolor='white', linewidth=0.5
 )
 ax_a.axvline(
-    x=-var_for_plot, color=COLOR_DANGER,
+    x=var_for_plot, color=COLOR_DANGER,
     linestyle='--', linewidth=2.5, alpha=0.9, zorder=5
 )
 
 # Shade tail
-var_mask = bins[:-1] <= -var_for_plot
+var_mask = bins[:-1] <= var_for_plot
 for patch, is_tail in zip(patches, var_mask):
     if is_tail:
         patch.set_facecolor(COLOR_DANGER)
