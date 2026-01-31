@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
+from dataclasses import dataclass
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Parameters ------------------------------------------------------------------#
 # np.random.seed(42)  # reproducibility
@@ -8,51 +10,90 @@ from scipy.stats import norm
 mu = 0.7      # mean daily return (0.1%)
 sigma = 0.13  # daily volatility (2%)
 confidence_level = 0.95
-num_samples_list = [n for n in range(10, 10**8 + 1, 100)]
+# num_samples_list = [n for n in range(10, 10**8 + 1, 100)]
+num_samples_max = 10**8
+num_samples_count = 200
+num_samples_list = np.unique(
+    np.logspace(1, np.log10(num_samples_max), num_samples_count, dtype=int)
+).tolist()  # 10, ..., 10^8
 
+CPU_WORKERS = 10
 
-# simulate_returns - a --------------------------------------------------------#			
-def simulate_returns(mu, sigma, num_samples):
-    """
-    Simulate daily returns from a Gaussian distribution.
-    """
-    return np.random.normal(mu, sigma, num_samples)
+# # simulate_returns - a --------------------------------------------------------#			
+# def simulate_returns(mu, sigma, num_samples):
+#     """
+#     Simulate daily returns from a Gaussian distribution.
+#     """
+#     return np.random.normal(mu, sigma, num_samples)
 
-# compute_var - b -------------------------------------------------------------#
-def compute_var(returns, confidence_level):
+# # compute_var - b -------------------------------------------------------------#
+# def compute_var(returns, confidence_level):
+#     """
+#     Compute classical Monte Carlo Value at Risk (VaR) at given confidence level.
+#     VaR is defined as the alpha-quantile of losses (positive number).
+#     """
+#     losses = -returns  # convert returns to losses
+#     var = np.quantile(losses, confidence_level)
+#     return var
+
+@dataclass
+class MonteCarloResult:
+    num_samples: int
+    var_estimate: float
+    error: float
+
+def monte_carlo_var(
+    N:int,
+    mu: float,
+    sigma: float,
+    confidence_level: float,
+    theoretical_var: float
+) -> MonteCarloResult:
     """
-    Compute classical Monte Carlo Value at Risk (VaR) at given confidence level.
-    VaR is defined as the alpha-quantile of losses (positive number).
+    Run one Monte Carlo VaR estimation for a given sample size N.
+    Returns: (N, var_estimate, error)
     """
-    losses = -returns  # convert returns to losses
-    var = np.quantile(losses, confidence_level)
-    return var
+    returns = np.random.normal(mu, sigma, N)
+    losses = -returns
+    var_estimate = np.quantile(losses, confidence_level)
+    error = abs(var_estimate - theoretical_var)
+    return MonteCarloResult(N, var_estimate, error)
+    
 
 # Run monte carlo - c ---------------------------------------------------------#
 mc_results = []
-errors = []
 
 # Theoretical VaR for Gaussian
 theoretical_var = - (mu + sigma * norm.ppf(1 - confidence_level))
 print(f"Theoretical VaR({int(confidence_level*100)}%) = {theoretical_var:.5f}")
 
-for N in num_samples_list:
-    returns = simulate_returns(mu, sigma, N)
-    var_estimate = compute_var(returns, confidence_level)
-    mc_results.append(var_estimate)
-    
-    # Monte Carlo error: |estimate - theory|
-    error = abs(var_estimate - theoretical_var)
-    errors.append(error)
-    
-    print(f"Samples: {N:>7}, VaR ≈ {var_estimate:.5f}, Error ≈ {error:.5f}")
+total_completed = 0
+
+
+with ProcessPoolExecutor(max_workers=CPU_WORKERS) as executor:
+    # Submit all tasks in parallel
+    futures = [executor.submit(monte_carlo_var, N, mu, sigma, confidence_level, theoretical_var)
+               for N in num_samples_list]
+
+    # Collect results as they complete
+    for future in as_completed(futures):
+        result = future.result()
+        mc_results.append(result)
+        
+        total_completed += 1
+        percent_complete = (total_completed / len(num_samples_list)) * 100
+        
+        print(f"{percent_complete:.2f}% - Samples: {result.num_samples:>8}, VaR ≈ {result.var_estimate:.5f}, Error ≈ {result.error:.5f}")
+        
+mc_results.sort(key=lambda x: x.num_samples)
+num_samples_list, var_results, errors = zip(*[(r.num_samples, r.var_estimate, r.error) for r in mc_results])
 
 # Plot convergence and demonstrate O(1/ε²) scaling - d ------------------------#
 plt.figure(figsize=(12,5))
 
 # Plot 1: Convergence of VaR estimate
 plt.subplot(1,2,1)
-plt.plot(num_samples_list, mc_results, marker='o', label='Monte Carlo VaR estimate')
+plt.plot(num_samples_list, var_results, marker='o', label='Monte Carlo VaR estimate')
 plt.axhline(y=theoretical_var, color='r', linestyle='--', label='Theoretical VaR')
 plt.xscale('log')
 plt.xlabel("Number of Samples (log scale)")
