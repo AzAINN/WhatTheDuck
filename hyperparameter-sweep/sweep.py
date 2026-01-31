@@ -200,6 +200,7 @@ class QuantumIQAECDF:
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--log-in", action="store_true")
     ap.add_argument("--classical", action="store_true")
     ap.add_argument("--quantum", action="store_true")
     ap.add_argument("--trials", type=int, default=40)
@@ -214,6 +215,10 @@ def main():
     ap.add_argument("--tau", type=float, default=0.0)  # VaR abs error tolerance; 0 means pure cost-min
     ap.add_argument("--out", type=str, default="best.json")
     args = ap.parse_args()
+
+    if args.log_in:
+        import classiq
+        classiq.authenticate()
 
     if args.classical == args.quantum:
         raise SystemExit("Pick exactly one: --classical or --quantum")
