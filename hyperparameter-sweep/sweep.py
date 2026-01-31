@@ -873,51 +873,59 @@ def main():
             strata = trial.suggest_int("strata", 4, 64) if "stratified" in method else 1
             use_cv = trial.suggest_categorical("use_control_variate", [True, False])
 
+            NUM_SEEDS = 5  # Average over multiple seeds for stability
+
             total_cost = 0.0
             total_err = 0.0
             max_err = 0.0
 
             for i, dd in enumerate(dist_data):
-                def estimator(q: TailQuery, **kw):
-                    return dd["estimator"].estimate_tail_prob(q, **kw)
+                dist_cost = 0.0
+                dist_err = 0.0
 
-                var, vidx, cost, _ = solve_var_bisect(
-                    estimator,
-                    alpha_target=args.alpha,
-                    tail_mode="pnl_leq",
-                    grid_points=dd["grid"],
-                    lo_index=0,
-                    hi_index=len(dd["grid"]) - 1,
-                    prob_tol=prob_tol,
-                    value_tol=args.value_tol,
-                    max_steps=args.max_steps,
-                    est_params={
-                        "budget": budget,
-                        "confidence": conf,
-                        "seed": args.seed + trial.number * 100 + i,
-                        "method": method,
-                        "tilt_tau": tilt_tau,
-                        "strata": strata,
-                        "use_control_variate": use_cv,
-                    },
-                )
+                for seed_offset in range(NUM_SEEDS):
+                    def estimator(q: TailQuery, **kw):
+                        return dd["estimator"].estimate_tail_prob(q, **kw)
 
-                # Normalize error by ref_var to make comparable across distributions
-                err = abs(var - dd["ref_var"]) / (abs(dd["ref_var"]) + 1e-9)
-                total_cost += cost
-                total_err += err
-                max_err = max(max_err, err)
+                    var, vidx, cost, _ = solve_var_bisect(
+                        estimator,
+                        alpha_target=args.alpha,
+                        tail_mode="pnl_leq",
+                        grid_points=dd["grid"],
+                        lo_index=0,
+                        hi_index=len(dd["grid"]) - 1,
+                        prob_tol=prob_tol,
+                        value_tol=args.value_tol,
+                        max_steps=args.max_steps,
+                        est_params={
+                            "budget": budget,
+                            "confidence": conf,
+                            "seed": args.seed + trial.number * 1000 + i * 100 + seed_offset,
+                            "method": method,
+                            "tilt_tau": tilt_tau,
+                            "strata": strata,
+                            "use_control_variate": use_cv,
+                        },
+                    )
 
-                # Early pruning on running average
+                    err = abs(var - dd["ref_var"]) / (abs(dd["ref_var"]) + 1e-9)
+                    dist_cost += cost
+                    dist_err += err
+
+                # Average over seeds
+                dist_cost /= NUM_SEEDS
+                dist_err /= NUM_SEEDS
+
+                total_cost += dist_cost
+                total_err += dist_err
+                max_err = max(max_err, dist_err)
+
                 trial.report(total_cost / (i + 1), step=i)
                 if trial.should_prune():
                     raise optuna.TrialPruned()
 
             avg_cost = total_cost / len(dist_data)
             avg_err = total_err / len(dist_data)
-
-            # Objective: minimize average cost + penalty for error
-            # Use max_err to penalize configs that fail badly on any distribution
             return avg_cost + 1e6 * avg_err + 1e5 * max_err
     else:
 
