@@ -32,7 +32,7 @@ mu = 0.15      # mean daily return (15%)
 sigma = 0.20   # daily volatility (20%)
 confidence_level = 0.95
 num_samples_max = 10**8
-num_samples_count = 200
+num_samples_count = 250
 num_samples_list = np.unique(
     np.logspace(1, np.log10(num_samples_max), num_samples_count, dtype=int)
 ).tolist()
@@ -101,6 +101,21 @@ witness_bottom_e2 = np.percentile(scaled_samples, 5)
 ref_line_top_e2 = witness_top_e2 * inv_error_sq
 ref_line_bottom_e2 = witness_bottom_e2 * inv_error_sq
 
+# Remove outliers for better visualization. Use the 95 / 5 previously computed.
+# For Figure 2 (Error Scaling): Keep points where scaled_errors fall within bounds
+mask_fig2 = (scaled_errors >= witness_bottom_n) & (scaled_errors <= witness_top_n)
+num_samples_list_fig2 = num_samples_array[mask_fig2]
+errors_fig2 = np.array(errors)[mask_fig2]
+ref_line_top_n_fig2 = ref_line_top_n[mask_fig2]
+ref_line_bottom_n_fig2 = ref_line_bottom_n[mask_fig2]
+
+# For Figure 3 (Sample Complexity): Keep points where scaled_samples fall within bounds
+mask_fig3 = (scaled_samples >= witness_bottom_e2) & (scaled_samples <= witness_top_e2)
+num_samples_list_fig3 = num_samples_array[mask_fig3]
+inv_error_sq_fig3 = inv_error_sq[mask_fig3]
+ref_line_top_e2_fig3 = ref_line_top_e2[mask_fig3]
+ref_line_bottom_e2_fig3 = ref_line_bottom_e2[mask_fig3]
+
 # Create professional visualizations ------------------------------------------#
 
 # Figure 1: VaR Convergence
@@ -151,22 +166,22 @@ fig2, ax2 = plt.subplots(figsize=(10, 6))
 fig2.patch.set_facecolor('white')
 ax2.set_facecolor('#fafafa')
 
-# Plot main data
-ax2.plot(num_samples_list, errors, 
+# Plot main data (filtered for outliers)
+ax2.plot(num_samples_list_fig2, errors_fig2, 
          marker='o', markersize=4, linewidth=2, 
          color=COLOR_SECONDARY, alpha=0.8,
          label='Absolute Error', zorder=4)
 
 # Reference lines with improved styling
-ax2.plot(num_samples_list, ref_line_top_n, 
+ax2.plot(num_samples_list_fig2, ref_line_top_n_fig2, 
          color=COLOR_BOUND_UPPER, linestyle='--', linewidth=2, alpha=0.7,
          label=r'$\mathcal{O}(N^{-1/2})$ Upper Bound', zorder=3)
-ax2.plot(num_samples_list, ref_line_bottom_n, 
+ax2.plot(num_samples_list_fig2, ref_line_bottom_n_fig2, 
          color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=2, alpha=0.7,
          label=r'$\Omega(N^{-1/2})$ Lower Bound', zorder=3)
 
 # Fill between bounds for visual clarity
-ax2.fill_between(num_samples_list, ref_line_bottom_n, ref_line_top_n,
+ax2.fill_between(num_samples_list_fig2, ref_line_bottom_n_fig2, ref_line_top_n_fig2,
                   alpha=0.1, color=COLOR_PRIMARY, zorder=1)
 
 # Enhanced grid
@@ -213,22 +228,22 @@ fig3, ax3 = plt.subplots(figsize=(10, 6))
 fig3.patch.set_facecolor('white')
 ax3.set_facecolor('#fafafa')
 
-# Plot main relationship
-ax3.plot(inv_error_sq, num_samples_list, 
+# Plot main relationship (filtered for outliers)
+ax3.plot(inv_error_sq_fig3, num_samples_list_fig3, 
          marker='o', markersize=4, linewidth=2, 
          color=COLOR_PRIMARY, alpha=0.8,
          label='Observed Samples vs $\\varepsilon^{-2}$', zorder=4)
 
 # Reference lines
-ax3.plot(inv_error_sq, ref_line_top_e2, 
+ax3.plot(inv_error_sq_fig3, ref_line_top_e2_fig3, 
          color=COLOR_BOUND_UPPER, linestyle='--', linewidth=2, alpha=0.7,
          label=r'$\mathcal{O}(\varepsilon^{-2})$ Upper Bound', zorder=3)
-ax3.plot(inv_error_sq, ref_line_bottom_e2, 
+ax3.plot(inv_error_sq_fig3, ref_line_bottom_e2_fig3, 
          color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=2, alpha=0.7,
          label=r'$\Omega(\varepsilon^{-2})$ Lower Bound', zorder=3)
 
 # Fill between bounds
-ax3.fill_between(inv_error_sq, ref_line_bottom_e2, ref_line_top_e2,
+ax3.fill_between(inv_error_sq_fig3, ref_line_bottom_e2_fig3, ref_line_top_e2_fig3,
                   alpha=0.1, color=COLOR_PRIMARY, zorder=1)
 
 # Enhanced grid
@@ -304,13 +319,13 @@ for spine in ax4_1.spines.values():
 # Subplot 2: Error Scaling
 ax4_2 = fig4.add_subplot(gs[1, 0])
 ax4_2.set_facecolor('#fafafa')
-ax4_2.plot(num_samples_list, errors, marker='o', markersize=3, 
+ax4_2.plot(num_samples_list_fig2, errors_fig2, marker='o', markersize=3, 
            linewidth=2, color=COLOR_SECONDARY, alpha=0.8, label='Absolute Error')
-ax4_2.plot(num_samples_list, ref_line_top_n, color=COLOR_BOUND_UPPER, 
+ax4_2.plot(num_samples_list_fig2, ref_line_top_n_fig2, color=COLOR_BOUND_UPPER, 
            linestyle='--', linewidth=1.5, alpha=0.7, label=r'$\mathcal{O}(N^{-1/2})$')
-ax4_2.plot(num_samples_list, ref_line_bottom_n, color=COLOR_BOUND_LOWER, 
+ax4_2.plot(num_samples_list_fig2, ref_line_bottom_n_fig2, color=COLOR_BOUND_LOWER, 
            linestyle='-.', linewidth=1.5, alpha=0.7, label=r'$\Omega(N^{-1/2})$')
-ax4_2.fill_between(num_samples_list, ref_line_bottom_n, ref_line_top_n,
+ax4_2.fill_between(num_samples_list_fig2, ref_line_bottom_n_fig2, ref_line_top_n_fig2,
                     alpha=0.1, color=COLOR_PRIMARY)
 ax4_2.set_xscale('log')
 ax4_2.set_yscale('log')
@@ -328,13 +343,13 @@ for spine in ax4_2.spines.values():
 # Subplot 3: Sample Complexity
 ax4_3 = fig4.add_subplot(gs[1, 1])
 ax4_3.set_facecolor('#fafafa')
-ax4_3.plot(inv_error_sq, num_samples_list, marker='o', markersize=3, 
+ax4_3.plot(inv_error_sq_fig3, num_samples_list_fig3, marker='o', markersize=3, 
            linewidth=2, color=COLOR_PRIMARY, alpha=0.8, label='Observed')
-ax4_3.plot(inv_error_sq, ref_line_top_e2, color=COLOR_BOUND_UPPER, 
+ax4_3.plot(inv_error_sq_fig3, ref_line_top_e2_fig3, color=COLOR_BOUND_UPPER, 
            linestyle='--', linewidth=1.5, alpha=0.7, label=r'$\mathcal{O}(\varepsilon^{-2})$')
-ax4_3.plot(inv_error_sq, ref_line_bottom_e2, color=COLOR_BOUND_LOWER, 
+ax4_3.plot(inv_error_sq_fig3, ref_line_bottom_e2_fig3, color=COLOR_BOUND_LOWER, 
            linestyle='-.', linewidth=1.5, alpha=0.7, label=r'$\Omega(\varepsilon^{-2})$')
-ax4_3.fill_between(inv_error_sq, ref_line_bottom_e2, ref_line_top_e2,
+ax4_3.fill_between(inv_error_sq_fig3, ref_line_bottom_e2_fig3, ref_line_top_e2_fig3,
                     alpha=0.1, color=COLOR_PRIMARY)
 ax4_3.set_xscale('log')
 ax4_3.set_yscale('log')
