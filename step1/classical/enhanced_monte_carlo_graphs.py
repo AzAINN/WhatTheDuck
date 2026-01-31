@@ -93,6 +93,10 @@ witness_bottom_n = np.percentile(scaled_errors, 5)
 ref_line_top_n = witness_top_n / np.sqrt(num_samples_list)
 ref_line_bottom_n = witness_bottom_n / np.sqrt(num_samples_list)
 
+print("\nReference Error Scaling Lines:")
+print(f"  • Upper Bound (95th percentile): {witness_top_n:.5f} * N^(-1/2)")
+print(f"  • Lower Bound (5th percentile): {witness_bottom_n:.5f} * N^(-1/2)")
+
 inv_error_sq = 1 / np.array(errors)**2
 num_samples_array = np.array(num_samples_list)
 scaled_samples = num_samples_array / inv_error_sq
@@ -100,6 +104,10 @@ witness_top_e2 = np.percentile(scaled_samples, 95)
 witness_bottom_e2 = np.percentile(scaled_samples, 5)
 ref_line_top_e2 = witness_top_e2 * inv_error_sq
 ref_line_bottom_e2 = witness_bottom_e2 * inv_error_sq
+
+print("\nReference Sample Complexity Lines:")
+print(f"  • Upper Bound (95th percentile): {witness_top_e2:.5f} * ε^(-2)")
+print(f"  • Lower Bound (5th percentile): {witness_bottom_e2:.5f} * ε^(-2)")
 
 # Remove outliers for better visualization. Use the 95 / 5 previously computed.
 # For Figure 2 (Error Scaling): Keep points where scaled_errors fall within bounds
@@ -211,6 +219,7 @@ ax2.tick_params(colors=COLOR_TEXT)
 # Add annotation for convergence rate
 mid_idx = len(num_samples_list) // 2
 ax2.annotate(r'Error $\propto N^{-1/2}$', 
+             zorder=5,
              xy=(num_samples_list[mid_idx], errors[mid_idx]),
              xytext=(num_samples_list[mid_idx] * 0.1, errors[mid_idx] * 3),
              fontsize=11, color=COLOR_ACCENT, fontweight='600',
@@ -273,7 +282,8 @@ ax3.tick_params(colors=COLOR_TEXT)
 
 # Add annotation for complexity
 mid_idx = len(inv_error_sq) // 2
-ax3.annotate(r'$N \propto \varepsilon^{-2}$', 
+ax3.annotate(r'$N \propto \varepsilon^{-2}$',
+             zorder=5,
              xy=(inv_error_sq[mid_idx], num_samples_list[mid_idx]),
              xytext=(inv_error_sq[mid_idx] * 0.15, num_samples_list[mid_idx] * 5),
              fontsize=11, color=COLOR_ACCENT, fontweight='600',
@@ -369,13 +379,12 @@ plt.savefig('./outputs/04_combined_analysis.png',
 print("✓ Saved: 04_combined_analysis.png")
 
 print("\n" + "="*60)
-print("All publication-quality graphs generated successfully!")
+print("Generated successfully")
 print("="*60)
 print("\nGenerated files:")
 print("  • 01_var_convergence.png     - VaR estimate convergence")
 print("  • 02_error_scaling.png       - Error scaling analysis")
 print("  • 03_sample_complexity.png   - Sample complexity visualization")
 print("  • 04_combined_analysis.png   - Comprehensive summary figure")
-print("\nThese graphs are ready for your presentation!")
 
 plt.show()
