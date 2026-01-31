@@ -1,12 +1,27 @@
+"""
+MONTE CARLO VaR ANALYSIS - PUBLICATION-QUALITY VISUALIZATION
+============================================================
+Advanced Monte Carlo simulation supporting:
+- Multi-day horizons
+- Non-Gaussian distributions (Normal, Student-t, Skew-Normal)
+- Temporal correlation (AR(1) process)
+- Comprehensive convergence analysis
+
+Author: Classical Monte Carlo Analysis
+Date: 2026
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm, skewnorm
+from scipy.stats import norm, skewnorm, t as student_t
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import matplotlib.font_manager as fm
 
-# Configure matplotlib for publication quality
+# ============================================================================
+# MATPLOTLIB CONFIGURATION
+# ============================================================================
+
 plt.rcParams['figure.dpi'] = 150
 plt.rcParams['savefig.dpi'] = 300
 plt.rcParams['font.size'] = 11
@@ -16,8 +31,9 @@ plt.rcParams['xtick.labelsize'] = 10
 plt.rcParams['ytick.labelsize'] = 10
 plt.rcParams['legend.fontsize'] = 10
 plt.rcParams['figure.titlesize'] = 16
+plt.rcParams['mathtext.fontset'] = 'stix'
 
-# Professional color palette - deep academic blues with warm accent
+# Professional color palette
 COLOR_PRIMARY = '#1e3a8a'      # Deep blue
 COLOR_SECONDARY = '#3b82f6'    # Bright blue
 COLOR_ACCENT = '#f59e0b'       # Amber accent
@@ -26,36 +42,50 @@ COLOR_GRID = '#e5e7eb'         # Light gray grid
 COLOR_TEXT = '#1f2937'         # Dark gray text
 COLOR_BOUND_UPPER = '#6366f1'  # Indigo for upper bound
 COLOR_BOUND_LOWER = '#8b5cf6'  # Purple for lower bound
+COLOR_DIST = '#3b82f6'         # Distribution color
 
-# Parameters ------------------------------------------------------------------#
-mu = 0.15    # mean daily return (15%)
-sigma = 0.20 # daily volatility (20%)
-confidence_level = 0.95
-T = 3             # Number of days for multi-day VaR
-dist = "skewnorm" # Distribution type: "gaussian", "student-t", "skewnorm"
-df = 3            # Degrees of freedom for Student-t
-skew_alpha = 5.0  # Skew parameter for skew-normal
-rho = 0.3         # AR(1) correlation coefficient between days
-num_samples_max = 10**6
-num_samples_count = 50
+# ============================================================================
+# SIMULATION PARAMETERS
+# ============================================================================
+
+# Market parameters
+mu = 0.15                      # Mean daily return (15%)
+sigma = 0.20                   # Daily volatility (20%)
+confidence_level = 0.95        # VaR confidence level
+
+# Multi-day and distribution settings
+T = 2                          # Number of days for multi-day VaR
+dist = "skewnorm"              # Distribution: "gaussian", "student-t", "skewnorm"
+df = 3                         # Degrees of freedom for Student-t
+skew_alpha = 5.0               # Skew parameter for skew-normal
+rho = 0.3                      # AR(1) correlation coefficient
+
+# Simulation settings
+num_samples_max = 10**7        # Maximum samples
+num_samples_count = 250        # Number of sample sizes to test
+theoretical_N = num_samples_max * 2 # Samples for theoretical VaR estimation
+CPU_WORKERS = 10               # Parallel workers
+
+# Generate logarithmically spaced sample sizes
 num_samples_list = np.unique(
     np.logspace(1, np.log10(num_samples_max), num_samples_count, dtype=int)
 ).tolist()
-CPU_WORKERS = 10
-theoretical_N = 2 * num_samples_max
 
-
-# Make output dir if not exists -----------------------------------------------#
+# Output directory
 output_dir = './outputs'
-if not os.path.exists(output_dir):
-	os.makedirs(output_dir)
+os.makedirs(output_dir, exist_ok=True)
 
-# Simulate returns ------------------------------------------------------------#
+# ============================================================================
+# MONTE CARLO ENGINE
+# ============================================================================
+
 @dataclass
 class MonteCarloResult:
+    """Container for Monte Carlo simulation results."""
     num_samples: int
     var_estimate: float
     error: float
+
 
 def monte_carlo_var(
     N: int,
@@ -63,31 +93,31 @@ def monte_carlo_var(
     sigma: float,
     confidence_level: float,
     theoretical_var: float,
-    T: int = 1,                  # Number of days
-    dist: str = "gaussian",      # "gaussian", "student-t", "skewnorm"
-    df: int = 5,                 # Degrees of freedom for t-distribution
-    skew_alpha: float = 0.0,     # Skew parameter for skew-normal
-    rho: float = 0.0             # AR(1) correlation between days
+    T: int = 1,
+    dist: str = "gaussian",
+    df: int = 5,
+    skew_alpha: float = 0.0,
+    rho: float = 0.0
 ) -> MonteCarloResult:
     """
-    Run one Monte Carlo VaR estimation for N samples over T days with optional
-    non-Gaussian distributions and correlation.
-
+    Monte Carlo VaR estimation with advanced features.
+    
     Parameters:
-        N: number of Monte Carlo scenarios
-        mu: mean daily return
-        sigma: daily volatility
-        confidence_level: confidence level for VaR
-        theoretical_var: theoretical VaR (used only for error calculation)
-        T: number of days in horizon
-        dist: distribution type: "gaussian", "student-t", "skewnorm"
-        df: degrees of freedom for Student-t
-        skew_alpha: skew parameter for skew-normal
-        rho: AR(1) correlation coefficient between days
+        N: Number of Monte Carlo scenarios
+        mu: Mean daily return
+        sigma: Daily volatility
+        confidence_level: Confidence level for VaR
+        theoretical_var: Theoretical VaR (for error calculation)
+        T: Number of days in horizon
+        dist: Distribution type ("gaussian", "student-t", "skewnorm")
+        df: Degrees of freedom for Student-t
+        skew_alpha: Skew parameter for skew-normal
+        rho: AR(1) correlation coefficient
+    
     Returns:
-        MonteCarloResult(num_samples, var_estimate, error)
+        MonteCarloResult with num_samples, var_estimate, and error
     """
-    # Step 1: Generate daily returns
+    # Generate daily returns based on distribution
     if dist == "gaussian":
         daily_returns = np.random.normal(mu, sigma, size=(N, T))
     elif dist == "student-t":
@@ -96,66 +126,125 @@ def monte_carlo_var(
         daily_returns = mu + sigma * skewnorm.rvs(skew_alpha, size=(N, T))
     else:
         raise ValueError(f"Unsupported distribution: {dist}")
-
-    # Step 2: Introduce correlation if rho != 0 (AR(1) process)
+    
+    # Apply AR(1) correlation if specified
     if rho != 0.0 and T > 1:
         correlated_returns = np.zeros_like(daily_returns)
         correlated_returns[:, 0] = daily_returns[:, 0]
         for t in range(1, T):
-            correlated_returns[:, t] = mu + rho * (correlated_returns[:, t-1] - mu) + \
-                                       (daily_returns[:, t] - mu) * np.sqrt(1 - rho**2)
+            innovation = (daily_returns[:, t] - mu) * np.sqrt(1 - rho**2)
+            correlated_returns[:, t] = mu + rho * (correlated_returns[:, t-1] - mu) + innovation
         daily_returns = correlated_returns
-
-    # Step 3: Aggregate multi-day returns
+    
+    # Aggregate multi-day returns and compute VaR
     total_returns = daily_returns.sum(axis=1)
-
-    # Step 4: Compute losses and VaR
     losses = -total_returns
     var_estimate = np.quantile(losses, confidence_level)
     error = abs(var_estimate - theoretical_var)
-
+    
     return MonteCarloResult(N, var_estimate, error)
 
 
-# Run monte carlo -------------------------------------------------------------#
-# Closed form theoretical VaR for multi-day with correlation and non-Gaussian is complex
-# so we will use a really large N to estimate it
-print("Estimating theoretical VaR with large N...")
-theoretical_mc = monte_carlo_var(theoretical_N, mu, sigma, confidence_level, 0.0, T, dist, df, skew_alpha, rho)
+# ============================================================================
+# VISUALIZATION HELPERS
+# ============================================================================
+
+def style_axes(ax, title, xlabel, ylabel):
+    """Apply consistent professional styling to axes."""
+    ax.set_facecolor('#fafafa')
+    ax.set_title(title, fontweight='600', color=COLOR_TEXT, pad=20)
+    ax.set_xlabel(xlabel, fontweight='500', color=COLOR_TEXT)
+    ax.set_ylabel(ylabel, fontweight='500', color=COLOR_TEXT)
+    ax.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
+    ax.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID)
+    ax.tick_params(colors=COLOR_TEXT)
+    for spine in ax.spines.values():
+        spine.set_edgecolor(COLOR_GRID)
+        spine.set_linewidth(1.5)
+
+
+def create_legend(ax, **kwargs):
+    """Create styled legend with consistent formatting."""
+    legend = ax.legend(frameon=True, fancybox=True, shadow=True,
+                      framealpha=0.95, edgecolor=COLOR_GRID, **kwargs)
+    legend.get_frame().set_facecolor('white')
+    return legend
+
+
+def get_distribution_name(dist, df=None, skew_alpha=None):
+    """Get formatted distribution name for labels."""
+    if dist == "gaussian":
+        return "Gaussian"
+    elif dist == "student-t":
+        return f"Student-t (df={df})"
+    elif dist == "skewnorm":
+        return f"Skew-Normal (α={skew_alpha})"
+    return dist
+
+
+# ============================================================================
+# RUN MONTE CARLO SIMULATIONS
+# ============================================================================
+
+print("="*70)
+print("MONTE CARLO VaR ANALYSIS")
+print("="*70)
+print(f"\nParameters:")
+print(f"  • Mean return (μ):          {mu:.2%}")
+print(f"  • Volatility (σ):           {sigma:.2%}")
+print(f"  • Confidence level:         {confidence_level:.0%}")
+print(f"  • Time horizon:             {T} days")
+print(f"  • Distribution:             {get_distribution_name(dist, df, skew_alpha)}")
+print(f"  • Correlation (ρ):          {rho:.2f}")
+print(f"  • Sample range:             {num_samples_list[0]:,} to {num_samples_list[-1]:,}")
+print("\n" + "="*70)
+
+# Estimate theoretical VaR using large N
+print(f"\nEstimating theoretical VaR with N={theoretical_N:,}...")
+theoretical_mc = monte_carlo_var(
+    theoretical_N, mu, sigma, confidence_level, 0.0, T, dist, df, skew_alpha, rho
+)
 theoretical_var = theoretical_mc.var_estimate
-print(f"Theoretical VaR({int(confidence_level*100)}%) [Estimated with N={theoretical_N}]: {theoretical_var:.5f}")
+print(f"Theoretical VaR ({int(confidence_level*100)}%): {theoretical_var:.5f}")
 
+# Run parallel simulations
+print(f"\nRunning {len(num_samples_list)} simulations in parallel...")
 mc_results = []
-
 total_completed = 0
+
 with ProcessPoolExecutor(max_workers=CPU_WORKERS) as executor:
     futures = [
-        executor.submit(monte_carlo_var, N, mu, sigma, confidence_level, theoretical_var,
-                        T, dist, df, skew_alpha, rho)
+        executor.submit(
+            monte_carlo_var, N, mu, sigma, confidence_level, theoretical_var,
+            T, dist, df, skew_alpha, rho
+        )
         for N in num_samples_list
     ]
     
     for future in as_completed(futures):
         result = future.result()
         mc_results.append(result)
-        
         total_completed += 1
         percent_complete = (total_completed / len(num_samples_list)) * 100
-        print(f"{percent_complete:.2f}% - Samples: {result.num_samples:>8}, VaR ≈ {result.var_estimate:.5f}, Error ≈ {result.error:.5f}")
+        print(f"  {percent_complete:5.1f}% | N={result.num_samples:>9,} | "
+              f"VaR={result.var_estimate:.5f} | Error={result.error:.3e}")
 
+# Sort results and extract data
 mc_results.sort(key=lambda x: x.num_samples)
-num_samples_list, var_results, errors = zip(*[(r.num_samples, r.var_estimate, r.error) for r in mc_results])
+num_samples_list, var_results, errors = zip(*[
+    (r.num_samples, r.var_estimate, r.error) for r in mc_results
+])
 
-# Calculate reference lines
+# ============================================================================
+# CALCULATE REFERENCE LINES AND FILTER OUTLIERS
+# ============================================================================
+
+# Calculate bounds using percentiles (more robust than min/max)
 scaled_errors = np.array(errors) * np.sqrt(np.array(num_samples_list))
-witness_top_n = np.percentile(scaled_errors, 95) 
+witness_top_n = np.percentile(scaled_errors, 95)
 witness_bottom_n = np.percentile(scaled_errors, 5)
 ref_line_top_n = witness_top_n / np.sqrt(num_samples_list)
 ref_line_bottom_n = witness_bottom_n / np.sqrt(num_samples_list)
-
-print("\nReference Error Scaling Lines:")
-print(f"  • Upper Bound (95th percentile): {witness_top_n:.5f} * N^(-1/2)")
-print(f"  • Lower Bound (5th percentile): {witness_bottom_n:.5f} * N^(-1/2)")
 
 inv_error_sq = 1 / np.array(errors)**2
 num_samples_array = np.array(num_samples_list)
@@ -165,332 +254,407 @@ witness_bottom_e2 = np.percentile(scaled_samples, 5)
 ref_line_top_e2 = witness_top_e2 * inv_error_sq
 ref_line_bottom_e2 = witness_bottom_e2 * inv_error_sq
 
-print("\nReference Sample Complexity Lines:")
-print(f"  • Upper Bound (95th percentile): {witness_top_e2:.5f} * ε^(-2)")
-print(f"  • Lower Bound (5th percentile): {witness_bottom_e2:.5f} * ε^(-2)")
-
-# Remove outliers for better visualization. Use the 95 / 5 previously computed.
-# For Figure 2 (Error Scaling): Keep points where scaled_errors fall within bounds
+# Filter outliers for cleaner visualizations
 mask_fig2 = (scaled_errors >= witness_bottom_n) & (scaled_errors <= witness_top_n)
-num_samples_list_fig2 = num_samples_array[mask_fig2]
+num_samples_fig2 = num_samples_array[mask_fig2]
 errors_fig2 = np.array(errors)[mask_fig2]
-ref_line_top_n_fig2 = ref_line_top_n[mask_fig2]
-ref_line_bottom_n_fig2 = ref_line_bottom_n[mask_fig2]
+ref_top_n_fig2 = ref_line_top_n[mask_fig2]
+ref_bot_n_fig2 = ref_line_bottom_n[mask_fig2]
 
-# For Figure 3 (Sample Complexity): Keep points where scaled_samples fall within bounds
 mask_fig3 = (scaled_samples >= witness_bottom_e2) & (scaled_samples <= witness_top_e2)
-num_samples_list_fig3 = num_samples_array[mask_fig3]
+num_samples_fig3 = num_samples_array[mask_fig3]
 inv_error_sq_fig3 = inv_error_sq[mask_fig3]
-ref_line_top_e2_fig3 = ref_line_top_e2[mask_fig3]
-ref_line_bottom_e2_fig3 = ref_line_bottom_e2[mask_fig3]
+ref_top_e2_fig3 = ref_line_top_e2[mask_fig3]
+ref_bot_e2_fig3 = ref_line_bottom_e2[mask_fig3]
 
-# Create professional visualizations ------------------------------------------#
+print(f"\nConvergence Bounds:")
+print(f"  • Error scaling:     [{witness_bottom_n:.5f}, {witness_top_n:.5f}] × N^(-1/2)")
+print(f"  • Sample complexity: [{witness_bottom_e2:.5f}, {witness_top_e2:.5f}] × ε^(-2)")
 
-# Figure 1: VaR Convergence
+# ============================================================================
+# GENERATE DISTRIBUTION VISUALIZATION
+# ============================================================================
+
+print("\nGenerating distribution visualization...")
+
+# Simulate large sample for distribution
+if dist == "gaussian":
+    daily_returns = np.random.normal(mu, sigma, size=(theoretical_N, T))
+elif dist == "student-t":
+    daily_returns = mu + sigma * np.random.standard_t(df, size=(theoretical_N, T))
+elif dist == "skewnorm":
+    daily_returns = mu + sigma * skewnorm.rvs(skew_alpha, size=(theoretical_N, T))
+
+# Apply correlation
+if rho != 0.0 and T > 1:
+    correlated_returns = np.zeros_like(daily_returns)
+    correlated_returns[:, 0] = daily_returns[:, 0]
+    for t in range(1, T):
+        innovation = (daily_returns[:, t] - mu) * np.sqrt(1 - rho**2)
+        correlated_returns[:, t] = mu + rho * (correlated_returns[:, t-1] - mu) + innovation
+    daily_returns = correlated_returns
+
+total_returns = daily_returns.sum(axis=1)
+losses = -total_returns
+var_for_plot = np.quantile(losses, confidence_level)
+
+# Create distribution figure
+fig_dist, ax_dist = plt.subplots(figsize=(10, 6))
+fig_dist.patch.set_facecolor('white')
+ax_dist.set_facecolor('#fafafa')
+
+# Histogram
+counts, bins, patches = ax_dist.hist(
+    total_returns, bins=100, alpha=0.7, color=COLOR_DIST,
+    density=True, edgecolor='white', linewidth=0.5, label='Simulated Returns'
+)
+
+# VaR line
+ax_dist.axvline(
+    x=-var_for_plot, color=COLOR_DANGER, linestyle='--',
+    linewidth=2.5, alpha=0.9, label=f'VaR at {int(confidence_level*100)}%', zorder=5
+)
+
+# Shade VaR tail
+var_mask = bins[:-1] <= -var_for_plot
+if np.any(var_mask):
+    for i, (patch, is_tail) in enumerate(zip(patches, var_mask)):
+        if is_tail:
+            patch.set_facecolor(COLOR_DANGER)
+            patch.set_alpha(0.4)
+
+# Styling
+style_axes(
+    ax_dist,
+    f'Return Distribution: {get_distribution_name(dist, df, skew_alpha)} (T={T} days, ρ={rho})',
+    f'{T}-Day Total Return',
+    'Probability Density'
+)
+create_legend(ax_dist, loc='best')
+
+# Add statistics text box
+stats_text = (
+    f'Statistics:\n'
+    f'Mean: {np.mean(total_returns):.5f}\n'
+    f'Std Dev: {np.std(total_returns):.5f}\n'
+    f'VaR: {var_for_plot:.5f}\n'
+    f'N: {theoretical_N:,}'
+)
+ax_dist.text(
+    0.02, 0.98, stats_text, transform=ax_dist.transAxes,
+    fontsize=10, verticalalignment='top',
+    bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
+              edgecolor=COLOR_GRID, alpha=0.9)
+)
+
+plt.tight_layout()
+plt.savefig(f'{output_dir}/00_distribution.png',
+            bbox_inches='tight', facecolor='white', edgecolor='none')
+print("✓ Saved: 00_distribution.png")
+plt.close()
+
+# ============================================================================
+# FIGURE 1: VaR CONVERGENCE
+# ============================================================================
+
+print("\nGenerating convergence plots...")
+
 fig1, ax1 = plt.subplots(figsize=(10, 6))
 fig1.patch.set_facecolor('white')
-ax1.set_facecolor('#fafafa')
 
-# Plot data with enhanced styling
-ax1.plot(num_samples_list, var_results, 
-         marker='o', markersize=4, linewidth=2, 
-         color=COLOR_PRIMARY, alpha=0.8,
-         label='Monte Carlo Estimate', zorder=3)
-ax1.axhline(y=theoretical_var, color=COLOR_DANGER, 
-            linestyle='--', linewidth=2.5, alpha=0.9,
-            label='Theoretical VaR', zorder=2)
+ax1.plot(
+    num_samples_list, var_results,
+    marker='o', markersize=4, linewidth=2,
+    color=COLOR_PRIMARY, alpha=0.8,
+    label='Monte Carlo Estimate', zorder=3
+)
+ax1.axhline(
+    y=theoretical_var, color=COLOR_DANGER,
+    linestyle='--', linewidth=2.5, alpha=0.9,
+    label='Theoretical VaR', zorder=2
+)
 
-# Enhanced grid
-ax1.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID, zorder=1)
-ax1.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID, zorder=1)
-
-# Styling
 ax1.set_xscale('log')
-ax1.set_xlabel('Number of Samples (N)', fontweight='500', color=COLOR_TEXT)
-ax1.set_ylabel(f'Value-at-Risk ({int(confidence_level*100)}% Confidence)', 
-               fontweight='500', color=COLOR_TEXT)
-ax1.set_title('Convergence of Classical Monte Carlo VaR Estimation', 
-              fontweight='600', color=COLOR_TEXT, pad=20)
-
-# Enhanced legend
-legend1 = ax1.legend(loc='best', frameon=True, fancybox=True, 
-                     shadow=True, framealpha=0.95, edgecolor=COLOR_GRID)
-legend1.get_frame().set_facecolor('white')
-
-# Spines styling
-for spine in ax1.spines.values():
-    spine.set_edgecolor(COLOR_GRID)
-    spine.set_linewidth(1.5)
-
-ax1.tick_params(colors=COLOR_TEXT)
+style_axes(
+    ax1,
+    'Convergence of Monte Carlo VaR Estimation',
+    'Number of Samples (N)',
+    f'Value-at-Risk ({int(confidence_level*100)}% Confidence)'
+)
+create_legend(ax1, loc='best')
 
 plt.tight_layout()
-plt.savefig('./outputs/01_var_convergence.png', 
+plt.savefig(f'{output_dir}/01_var_convergence.png',
             bbox_inches='tight', facecolor='white', edgecolor='none')
 print("✓ Saved: 01_var_convergence.png")
+plt.close()
 
-# Figure 2: Error Scaling
+# ============================================================================
+# FIGURE 2: ERROR SCALING
+# ============================================================================
+
 fig2, ax2 = plt.subplots(figsize=(10, 6))
 fig2.patch.set_facecolor('white')
-ax2.set_facecolor('#fafafa')
 
-# Plot main data (filtered for outliers)
-ax2.plot(num_samples_list_fig2, errors_fig2, 
-         marker='o', markersize=4, linewidth=2, 
-         color=COLOR_SECONDARY, alpha=0.8,
-         label='Absolute Error', zorder=4)
+ax2.plot(
+    num_samples_fig2, errors_fig2,
+    marker='o', markersize=4, linewidth=2,
+    color=COLOR_SECONDARY, alpha=0.8,
+    label='Absolute Error', zorder=4
+)
+ax2.plot(
+    num_samples_fig2, ref_top_n_fig2,
+    color=COLOR_BOUND_UPPER, linestyle='--', linewidth=2, alpha=0.7,
+    label=r'$\mathcal{O}(N^{-1/2})$ Upper', zorder=3
+)
+ax2.plot(
+    num_samples_fig2, ref_bot_n_fig2,
+    color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=2, alpha=0.7,
+    label=r'$\Omega(N^{-1/2})$ Lower', zorder=3
+)
+ax2.fill_between(
+    num_samples_fig2, ref_bot_n_fig2, ref_top_n_fig2,
+    alpha=0.1, color=COLOR_PRIMARY, zorder=1
+)
 
-# Reference lines with improved styling
-ax2.plot(num_samples_list_fig2, ref_line_top_n_fig2, 
-         color=COLOR_BOUND_UPPER, linestyle='--', linewidth=2, alpha=0.7,
-         label=r'$\mathcal{O}(N^{-1/2})$ Upper Bound', zorder=3)
-ax2.plot(num_samples_list_fig2, ref_line_bottom_n_fig2, 
-         color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=2, alpha=0.7,
-         label=r'$\Omega(N^{-1/2})$ Lower Bound', zorder=3)
-
-# Fill between bounds for visual clarity
-ax2.fill_between(num_samples_list_fig2, ref_line_bottom_n_fig2, ref_line_top_n_fig2,
-                  alpha=0.1, color=COLOR_PRIMARY, zorder=1)
-
-# Enhanced grid
-ax2.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID, zorder=2)
-ax2.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID, zorder=2)
-
-# Styling
 ax2.set_xscale('log')
 ax2.set_yscale('log')
-ax2.set_xlabel('Number of Samples (N)', fontweight='500', color=COLOR_TEXT)
-ax2.set_ylabel('Absolute Error |VaR - Theoretical|', fontweight='500', color=COLOR_TEXT)
-ax2.set_title('Monte Carlo Error Scaling: Classical Convergence Rate', 
-              fontweight='600', color=COLOR_TEXT, pad=20)
+style_axes(
+    ax2,
+    'Monte Carlo Error Scaling: Classical Convergence Rate',
+    'Number of Samples (N)',
+    'Absolute Error |VaR - Theoretical|'
+)
+create_legend(ax2, loc='best')
 
-# Enhanced legend
-legend2 = ax2.legend(loc='best', frameon=True, fancybox=True, 
-                     shadow=True, framealpha=0.95, edgecolor=COLOR_GRID)
-legend2.get_frame().set_facecolor('white')
-
-# Spines styling
-for spine in ax2.spines.values():
-    spine.set_edgecolor(COLOR_GRID)
-    spine.set_linewidth(1.5)
-
-ax2.tick_params(colors=COLOR_TEXT)
-
-# Add annotation for convergence rate
+# Annotation
 mid_idx = len(num_samples_list) // 2
-ax2.annotate(r'Error $\propto N^{-1/2}$', 
-             zorder=5,
-             xy=(num_samples_list[mid_idx], errors[mid_idx]),
-             xytext=(num_samples_list[mid_idx] * 0.1, errors[mid_idx] * 3),
-             fontsize=11, color=COLOR_ACCENT, fontweight='600',
-             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', 
-                      edgecolor=COLOR_ACCENT, alpha=0.9),
-             arrowprops=dict(arrowstyle='->', color=COLOR_ACCENT, lw=2))
+ax2.annotate(
+    r'Error $\propto N^{-1/2}$',
+    xy=(num_samples_list[mid_idx], errors[mid_idx]),
+    xytext=(num_samples_list[mid_idx] * 0.1, errors[mid_idx] * 3),
+    fontsize=11, color=COLOR_ACCENT, fontweight='600', zorder=5,
+    bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
+              edgecolor=COLOR_ACCENT, alpha=0.9),
+    arrowprops=dict(arrowstyle='->', color=COLOR_ACCENT, lw=2)
+)
 
 plt.tight_layout()
-plt.savefig('./outputs/02_error_scaling.png', 
+plt.savefig(f'{output_dir}/02_error_scaling.png',
             bbox_inches='tight', facecolor='white', edgecolor='none')
 print("✓ Saved: 02_error_scaling.png")
+plt.close()
 
-# Figure 3: Sample Complexity
+# ============================================================================
+# FIGURE 3: SAMPLE COMPLEXITY
+# ============================================================================
+
 fig3, ax3 = plt.subplots(figsize=(10, 6))
 fig3.patch.set_facecolor('white')
-ax3.set_facecolor('#fafafa')
 
-# Plot main relationship (filtered for outliers)
-ax3.plot(inv_error_sq_fig3, num_samples_list_fig3, 
-         marker='o', markersize=4, linewidth=2, 
-         color=COLOR_PRIMARY, alpha=0.8,
-         label='Observed Samples vs $\\varepsilon^{-2}$', zorder=4)
+ax3.plot(
+    inv_error_sq_fig3, num_samples_fig3,
+    marker='o', markersize=4, linewidth=2,
+    color=COLOR_PRIMARY, alpha=0.8,
+    label=r'Observed Samples vs $\varepsilon^{-2}$', zorder=4
+)
+ax3.plot(
+    inv_error_sq_fig3, ref_top_e2_fig3,
+    color=COLOR_BOUND_UPPER, linestyle='--', linewidth=2, alpha=0.7,
+    label=r'$\mathcal{O}(\varepsilon^{-2})$ Upper', zorder=3
+)
+ax3.plot(
+    inv_error_sq_fig3, ref_bot_e2_fig3,
+    color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=2, alpha=0.7,
+    label=r'$\Omega(\varepsilon^{-2})$ Lower', zorder=3
+)
+ax3.fill_between(
+    inv_error_sq_fig3, ref_bot_e2_fig3, ref_top_e2_fig3,
+    alpha=0.1, color=COLOR_PRIMARY, zorder=1
+)
 
-# Reference lines
-ax3.plot(inv_error_sq_fig3, ref_line_top_e2_fig3, 
-         color=COLOR_BOUND_UPPER, linestyle='--', linewidth=2, alpha=0.7,
-         label=r'$\mathcal{O}(\varepsilon^{-2})$ Upper Bound', zorder=3)
-ax3.plot(inv_error_sq_fig3, ref_line_bottom_e2_fig3, 
-         color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=2, alpha=0.7,
-         label=r'$\Omega(\varepsilon^{-2})$ Lower Bound', zorder=3)
-
-# Fill between bounds
-ax3.fill_between(inv_error_sq_fig3, ref_line_bottom_e2_fig3, ref_line_top_e2_fig3,
-                  alpha=0.1, color=COLOR_PRIMARY, zorder=1)
-
-# Enhanced grid
-ax3.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID, zorder=2)
-ax3.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID, zorder=2)
-
-# Styling
 ax3.set_xscale('log')
 ax3.set_yscale('log')
-ax3.set_xlabel(r'Inverse Squared Error ($\varepsilon^{-2}$)', 
-               fontweight='500', color=COLOR_TEXT)
-ax3.set_ylabel('Required Number of Samples (N)', fontweight='500', color=COLOR_TEXT)
-ax3.set_title('Sample Complexity: Classical Monte Carlo Scaling', 
-              fontweight='600', color=COLOR_TEXT, pad=20)
+style_axes(
+    ax3,
+    'Sample Complexity: Classical Monte Carlo Scaling',
+    r'Inverse Squared Error ($\varepsilon^{-2}$)',
+    'Required Number of Samples (N)'
+)
+create_legend(ax3, loc='best')
 
-# Enhanced legend
-legend3 = ax3.legend(loc='best', frameon=True, fancybox=True, 
-                     shadow=True, framealpha=0.95, edgecolor=COLOR_GRID)
-legend3.get_frame().set_facecolor('white')
-
-# Spines styling
-for spine in ax3.spines.values():
-    spine.set_edgecolor(COLOR_GRID)
-    spine.set_linewidth(1.5)
-
-ax3.tick_params(colors=COLOR_TEXT)
-
-# Add annotation for complexity
+# Annotation
 mid_idx = len(inv_error_sq) // 2
-ax3.annotate(r'$N \propto \varepsilon^{-2}$',
-             zorder=5,
-             xy=(inv_error_sq[mid_idx], num_samples_list[mid_idx]),
-             xytext=(inv_error_sq[mid_idx] * 0.15, num_samples_list[mid_idx] * 5),
-             fontsize=11, color=COLOR_ACCENT, fontweight='600',
-             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', 
-                      edgecolor=COLOR_ACCENT, alpha=0.9),
-             arrowprops=dict(arrowstyle='->', color=COLOR_ACCENT, lw=2))
+ax3.annotate(
+    r'$N \propto \varepsilon^{-2}$',
+    xy=(inv_error_sq[mid_idx], num_samples_list[mid_idx]),
+    xytext=(inv_error_sq[mid_idx] * 0.15, num_samples_list[mid_idx] * 5),
+    fontsize=11, color=COLOR_ACCENT, fontweight='600', zorder=5,
+    bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
+              edgecolor=COLOR_ACCENT, alpha=0.9),
+    arrowprops=dict(arrowstyle='->', color=COLOR_ACCENT, lw=2)
+)
 
 plt.tight_layout()
-plt.savefig('./outputs/03_sample_complexity.png', 
+plt.savefig(f'{output_dir}/03_sample_complexity.png',
             bbox_inches='tight', facecolor='white', edgecolor='none')
 print("✓ Saved: 03_sample_complexity.png")
+plt.close()
 
-# Create a combined summary figure
-fig4 = plt.figure(figsize=(16, 10))
+# ============================================================================
+# FIGURE 4: COMBINED ANALYSIS (4-PANEL)
+# ============================================================================
+
+print("\nGenerating combined analysis figure...")
+
+fig4 = plt.figure(figsize=(20, 11))
 fig4.patch.set_facecolor('white')
-gs = fig4.add_gridspec(2, 2, hspace=0.3, wspace=0.3, 
-                       top=0.93, bottom=0.07, left=0.08, right=0.95)
+gs = fig4.add_gridspec(
+    2, 3, hspace=0.35, wspace=0.35,
+    top=0.93, bottom=0.06, left=0.06, right=0.97
+)
 
-# Add overall title
-fig4.suptitle('Classical Monte Carlo Analysis: VaR Estimation & Convergence Properties', 
-              fontsize=18, fontweight='700', color=COLOR_TEXT, y=0.98)
+fig4.suptitle(
+    f'Classical Monte Carlo Analysis: {get_distribution_name(dist, df, skew_alpha)} '
+    f'VaR (T={T}, ρ={rho})',
+    fontsize=18, fontweight='700', color=COLOR_TEXT, y=0.98
+)
 
-# Subplot 1: VaR Convergence
-ax4_1 = fig4.add_subplot(gs[0, :])
-ax4_1.set_facecolor('#fafafa')
-ax4_1.plot(num_samples_list, var_results, marker='o', markersize=3, 
-           linewidth=2, color=COLOR_PRIMARY, alpha=0.8, label='Monte Carlo Estimate')
-ax4_1.axhline(y=theoretical_var, color=COLOR_DANGER, linestyle='--', 
-              linewidth=2.5, alpha=0.9, label='Theoretical VaR')
-ax4_1.set_xscale('log')
-ax4_1.set_xlabel('Number of Samples (N)', fontweight='500', color=COLOR_TEXT)
-ax4_1.set_ylabel(f'VaR ({int(confidence_level*100)}%)', fontweight='500', color=COLOR_TEXT)
-ax4_1.set_title('(A) VaR Estimate Convergence', fontweight='600', 
-                color=COLOR_TEXT, loc='left')
-ax4_1.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
-ax4_1.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID)
-legend = ax4_1.legend(frameon=True, fancybox=True, shadow=True, framealpha=0.95)
-legend.get_frame().set_facecolor('white')
-for spine in ax4_1.spines.values():
+# Panel A: Distribution (spans left column)
+ax_a = fig4.add_subplot(gs[:, 0])
+ax_a.set_facecolor('#fafafa')
+
+counts, bins, patches = ax_a.hist(
+    total_returns, bins=80, alpha=0.7, color=COLOR_DIST,
+    density=True, edgecolor='white', linewidth=0.5
+)
+ax_a.axvline(
+    x=-var_for_plot, color=COLOR_DANGER,
+    linestyle='--', linewidth=2.5, alpha=0.9, zorder=5
+)
+
+# Shade tail
+var_mask = bins[:-1] <= -var_for_plot
+for patch, is_tail in zip(patches, var_mask):
+    if is_tail:
+        patch.set_facecolor(COLOR_DANGER)
+        patch.set_alpha(0.4)
+
+ax_a.set_xlabel(f'{T}-Day Total Return', fontweight='500', color=COLOR_TEXT)
+ax_a.set_ylabel('Probability Density', fontweight='500', color=COLOR_TEXT)
+ax_a.set_title('(A) Return Distribution', fontweight='600', color=COLOR_TEXT, loc='left')
+ax_a.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
+for spine in ax_a.spines.values():
     spine.set_edgecolor(COLOR_GRID)
     spine.set_linewidth(1.5)
 
-# Subplot 2: Error Scaling
-ax4_2 = fig4.add_subplot(gs[1, 0])
-ax4_2.set_facecolor('#fafafa')
-ax4_2.plot(num_samples_list_fig2, errors_fig2, marker='o', markersize=3, 
-           linewidth=2, color=COLOR_SECONDARY, alpha=0.8, label='Absolute Error')
-ax4_2.plot(num_samples_list_fig2, ref_line_top_n_fig2, color=COLOR_BOUND_UPPER, 
-           linestyle='--', linewidth=1.5, alpha=0.7, label=r'$\mathcal{O}(N^{-1/2})$')
-ax4_2.plot(num_samples_list_fig2, ref_line_bottom_n_fig2, color=COLOR_BOUND_LOWER, 
-           linestyle='-.', linewidth=1.5, alpha=0.7, label=r'$\Omega(N^{-1/2})$')
-ax4_2.fill_between(num_samples_list_fig2, ref_line_bottom_n_fig2, ref_line_top_n_fig2,
-                    alpha=0.1, color=COLOR_PRIMARY)
-ax4_2.set_xscale('log')
-ax4_2.set_yscale('log')
-ax4_2.set_xlabel('Samples (N)', fontweight='500', color=COLOR_TEXT)
-ax4_2.set_ylabel('Absolute Error', fontweight='500', color=COLOR_TEXT)
-ax4_2.set_title('(B) Error Scaling', fontweight='600', color=COLOR_TEXT, loc='left')
-ax4_2.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
-ax4_2.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID)
-legend = ax4_2.legend(frameon=True, fancybox=True, shadow=True, framealpha=0.95, fontsize=9)
-legend.get_frame().set_facecolor('white')
-for spine in ax4_2.spines.values():
+# Panel B: VaR Convergence
+ax_b = fig4.add_subplot(gs[0, 1:])
+ax_b.set_facecolor('#fafafa')
+ax_b.plot(
+    num_samples_list, var_results, marker='o', markersize=3,
+    linewidth=2, color=COLOR_PRIMARY, alpha=0.8
+)
+ax_b.axhline(
+    y=theoretical_var, color=COLOR_DANGER,
+    linestyle='--', linewidth=2, alpha=0.9
+)
+ax_b.set_xscale('log')
+ax_b.set_xlabel('Number of Samples (N)', fontweight='500', color=COLOR_TEXT)
+ax_b.set_ylabel(f'VaR ({int(confidence_level*100)}%)', fontweight='500', color=COLOR_TEXT)
+ax_b.set_title('(B) VaR Estimate Convergence', fontweight='600', color=COLOR_TEXT, loc='left')
+ax_b.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
+ax_b.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID)
+for spine in ax_b.spines.values():
     spine.set_edgecolor(COLOR_GRID)
     spine.set_linewidth(1.5)
 
-# Subplot 3: Sample Complexity
-ax4_3 = fig4.add_subplot(gs[1, 1])
-ax4_3.set_facecolor('#fafafa')
-ax4_3.plot(inv_error_sq_fig3, num_samples_list_fig3, marker='o', markersize=3, 
-           linewidth=2, color=COLOR_PRIMARY, alpha=0.8, label='Observed')
-ax4_3.plot(inv_error_sq_fig3, ref_line_top_e2_fig3, color=COLOR_BOUND_UPPER, 
-           linestyle='--', linewidth=1.5, alpha=0.7, label=r'$\mathcal{O}(\varepsilon^{-2})$')
-ax4_3.plot(inv_error_sq_fig3, ref_line_bottom_e2_fig3, color=COLOR_BOUND_LOWER, 
-           linestyle='-.', linewidth=1.5, alpha=0.7, label=r'$\Omega(\varepsilon^{-2})$')
-ax4_3.fill_between(inv_error_sq_fig3, ref_line_bottom_e2_fig3, ref_line_top_e2_fig3,
-                    alpha=0.1, color=COLOR_PRIMARY)
-ax4_3.set_xscale('log')
-ax4_3.set_yscale('log')
-ax4_3.set_xlabel(r'$\varepsilon^{-2}$', fontweight='500', color=COLOR_TEXT)
-ax4_3.set_ylabel('Samples (N)', fontweight='500', color=COLOR_TEXT)
-ax4_3.set_title('(C) Sample Complexity', fontweight='600', color=COLOR_TEXT, loc='left')
-ax4_3.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
-ax4_3.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID)
-legend = ax4_3.legend(frameon=True, fancybox=True, shadow=True, framealpha=0.95, fontsize=9)
-legend.get_frame().set_facecolor('white')
-for spine in ax4_3.spines.values():
+# Panel C: Error Scaling
+ax_c = fig4.add_subplot(gs[1, 1])
+ax_c.set_facecolor('#fafafa')
+ax_c.plot(
+    num_samples_fig2, errors_fig2, marker='o', markersize=3,
+    linewidth=2, color=COLOR_SECONDARY, alpha=0.8
+)
+ax_c.plot(
+    num_samples_fig2, ref_top_n_fig2,
+    color=COLOR_BOUND_UPPER, linestyle='--', linewidth=1.5, alpha=0.7
+)
+ax_c.plot(
+    num_samples_fig2, ref_bot_n_fig2,
+    color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=1.5, alpha=0.7
+)
+ax_c.fill_between(
+    num_samples_fig2, ref_bot_n_fig2, ref_top_n_fig2,
+    alpha=0.1, color=COLOR_PRIMARY
+)
+ax_c.set_xscale('log')
+ax_c.set_yscale('log')
+ax_c.set_xlabel('Samples (N)', fontweight='500', color=COLOR_TEXT, fontsize=10)
+ax_c.set_ylabel('Absolute Error', fontweight='500', color=COLOR_TEXT, fontsize=10)
+ax_c.set_title('(C) Error Scaling', fontweight='600', color=COLOR_TEXT, loc='left')
+ax_c.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
+ax_c.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID)
+for spine in ax_c.spines.values():
     spine.set_edgecolor(COLOR_GRID)
     spine.set_linewidth(1.5)
 
-plt.savefig('./outputs/04_combined_analysis.png', 
+# Panel D: Sample Complexity
+ax_d = fig4.add_subplot(gs[1, 2])
+ax_d.set_facecolor('#fafafa')
+ax_d.plot(
+    inv_error_sq_fig3, num_samples_fig3, marker='o', markersize=3,
+    linewidth=2, color=COLOR_PRIMARY, alpha=0.8
+)
+ax_d.plot(
+    inv_error_sq_fig3, ref_top_e2_fig3,
+    color=COLOR_BOUND_UPPER, linestyle='--', linewidth=1.5, alpha=0.7
+)
+ax_d.plot(
+    inv_error_sq_fig3, ref_bot_e2_fig3,
+    color=COLOR_BOUND_LOWER, linestyle='-.', linewidth=1.5, alpha=0.7
+)
+ax_d.fill_between(
+    inv_error_sq_fig3, ref_bot_e2_fig3, ref_top_e2_fig3,
+    alpha=0.1, color=COLOR_PRIMARY
+)
+ax_d.set_xscale('log')
+ax_d.set_yscale('log')
+ax_d.set_xlabel(r'$\varepsilon^{-2}$', fontweight='500', color=COLOR_TEXT, fontsize=10)
+ax_d.set_ylabel('Samples (N)', fontweight='500', color=COLOR_TEXT, fontsize=10)
+ax_d.set_title('(D) Sample Complexity', fontweight='600', color=COLOR_TEXT, loc='left')
+ax_d.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
+ax_d.grid(True, which='minor', linestyle=':', alpha=0.15, color=COLOR_GRID)
+for spine in ax_d.spines.values():
+    spine.set_edgecolor(COLOR_GRID)
+    spine.set_linewidth(1.5)
+
+plt.savefig(f'{output_dir}/04_combined_analysis.png',
             bbox_inches='tight', facecolor='white', edgecolor='none')
 print("✓ Saved: 04_combined_analysis.png")
+plt.close()
 
-print("\n" + "="*60)
-print("Generated successfully")
-print("="*60)
-print("\nGenerated files:")
-print("  • 01_var_convergence.png     - VaR estimate convergence")
-print("  • 02_error_scaling.png       - Error scaling analysis")
-print("  • 03_sample_complexity.png   - Sample complexity visualization")
-print("  • 04_combined_analysis.png   - Comprehensive summary figure")
+# ============================================================================
+# SUMMARY
+# ============================================================================
 
-def plot_distribution(
-    N=100000,
-    mu=0.0015,
-    sigma=0.02,
-    T=5,
-    dist="student-t",
-    df=4,
-    skew_alpha=0.5,
-    rho=0.2,
-    confidence_level=0.95
-):
-    """Plot histogram of simulated total returns and mark VaR."""
-    # Resimulate for plotting raw distribution
-    if dist == "gaussian":
-        daily_returns = np.random.normal(mu, sigma, size=(N, T))
-    elif dist == "student-t":
-        daily_returns = mu + sigma * np.random.standard_t(df, size=(N, T))
-    elif dist == "skewnorm":
-        daily_returns = mu + sigma * skewnorm.rvs(skew_alpha, size=(N, T))
-    
-    # Correlate if needed
-    if rho != 0.0 and T > 1:
-        correlated_returns = np.zeros_like(daily_returns)
-        correlated_returns[:, 0] = daily_returns[:, 0]
-        for t in range(1, T):
-            correlated_returns[:, t] = mu + rho * (correlated_returns[:, t-1] - mu) + \
-                                       (daily_returns[:, t] - mu) * np.sqrt(1 - rho**2)
-        daily_returns = correlated_returns
+print("\n" + "="*70)
+print("✨ ALL PUBLICATION-QUALITY GRAPHS GENERATED SUCCESSFULLY!")
+print("="*70)
+print("\nGenerated Files:")
+print("  📊 00_distribution.png         - Return distribution & VaR visualization")
+print("  📊 01_var_convergence.png      - VaR estimate convergence")
+print("  📊 02_error_scaling.png        - Error scaling with O(N^-1/2) bounds")
+print("  📊 03_sample_complexity.png    - Sample complexity O(ε^-2) analysis")
+print("  📊 04_combined_analysis.png    - Comprehensive 4-panel summary")
+print("\nAnalysis Summary:")
+print(f"  • Distribution:   {get_distribution_name(dist, df, skew_alpha)}")
+print(f"  • Time Horizon:   {T} days")
+print(f"  • Correlation:    ρ = {rho}")
+print(f"  • Theoretical VaR: {theoretical_var:.5f}")
+print(f"  • Data Points:    {len(mc_results)}")
+print(f"\nLocation: {output_dir}/")
+print("="*70)
 
-    total_returns = daily_returns.sum(axis=1)
-    losses = -total_returns
-    var_estimate = np.quantile(losses, confidence_level)
-
-    # Plot
-    plt.figure(figsize=(8,5))
-    plt.hist(total_returns, bins=200, alpha=0.6, color='#3b82f6', density=True, label='Total Return Distribution')
-    plt.axvline(x=-var_estimate, color='r', linestyle='--', linewidth=2, label=f'VaR ({int(confidence_level*100)}%)')
-    plt.xlabel(f"Total {T}-day Returns")
-    plt.ylabel("Probability Density")
-    plt.title(f"Monte Carlo Distribution: {dist}, T={T}, ρ={rho}")
-    plt.legend()
-    plt.grid(alpha=0.3)
-
-plot_distribution(theoretical_N, mu, sigma, T, dist, df, skew_alpha, rho, confidence_level)
-
-
-plt.show()
+# Optional: Display plots if running interactively
+# plt.show()
