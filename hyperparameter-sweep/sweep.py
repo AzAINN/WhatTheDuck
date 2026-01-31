@@ -682,8 +682,24 @@ def main():
         pruner = optuna.pruners.MedianPruner(n_startup_trials=8)
 
         def objective(trial: optuna.Trial):
-            budget = trial.suggest_int("budget", 500, 200_000, log=True)
+            budget = trial.suggest_int("budget", 500, 50_000, log=True)
             conf = trial.suggest_float("confidence", 0.90, 0.999)
+
+            # Variance reduction method selection
+            method = trial.suggest_categorical("method", [
+                "plain", "is", "stratified", "qmc",
+                "is_stratified", "is_qmc", "is_stratified_qmc"
+            ])
+
+            # IS tilting (only matters for IS methods)
+            tilt_tau = trial.suggest_float("tilt_tau", 0.01, 2.0) if "is" in method else 0.0
+
+            # Stratification (only matters for stratified methods)
+            strata = trial.suggest_int("strata", 4, 64) if "stratified" in method else 1
+
+            # Control variate
+            use_cv = trial.suggest_categorical("use_control_variate", [True, False])
+
             var, vidx, cost, _ = solve_var_bisect(
                 estimator,
                 alpha_target=args.alpha,
@@ -694,13 +710,20 @@ def main():
                 prob_tol=prob_tol,
                 value_tol=args.value_tol,
                 max_steps=args.max_steps,
-                est_params={"budget": budget, "confidence": conf, "seed": args.seed + trial.number},
+                est_params={
+                    "budget": budget,
+                    "confidence": conf,
+                    "seed": args.seed + trial.number,
+                    "method": method,
+                    "tilt_tau": tilt_tau,
+                    "strata": strata,
+                    "use_control_variate": use_cv,
+                },
             )
             err = abs(var - ref_var)
             trial.report(err, step=0)
             if trial.should_prune():
                 raise optuna.TrialPruned()
-            # Penalize violations if tau > 0; else just minimize cost for frontier building later
             return cost + (1e9 * max(0.0, err - args.tau)) if args.tau > 0 else cost + 1e6 * err
 
     else:
@@ -721,9 +744,9 @@ def main():
         # kernel = qasm_to_cudaq(qasm)
 
         # Run with CUDA-Q
-        import cudaq
-        cudaq.set_target("nvidia")
-        result = cudaq.sample(kernel, shots_count=1000)
+        # import cudaq
+        # cudaq.set_target("nvidia")
+        # result = cudaq.sample(kernel, shots_count=1000)
 
         def estimator(q: TailQuery, **kw):
             return est.estimate_tail_prob(q, **kw)
