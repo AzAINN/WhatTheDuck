@@ -715,8 +715,8 @@ def main():
                 f.write(qasm)
             print(f"Saved circuit.qasm for threshold_index={ref_idx}")
             return
-        with open("circuit.qasm") as f:
-            qasm = f.read()
+        # with open("circuit.qasm") as f:
+        #     qasm = f.read()
 
         # Convert to CUDA-Q kernel (works offline)
         kernel = qasm_to_cudaq(qasm)
