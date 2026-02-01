@@ -120,10 +120,11 @@ path_mean = [true_mean * d for d in range(SAMPLE_DAYS + 1)]
 # VISUALIZATION HELPERS
 # ============================================================================
 
-def style_axes(ax, title, xlabel, ylabel):
+def style_axes(fig, ax, title, subtitle, xlabel, ylabel):
     """Apply consistent professional styling to axes."""
+    fig.suptitle(title, fontweight='700', color=COLOR_TEXT, y=.96)
     ax.set_facecolor('#fafafa')
-    ax.set_title(title, fontweight='600', color=COLOR_TEXT, pad=20)
+    ax.set_title(subtitle, fontweight='300', color=COLOR_TEXT, pad=10)
     ax.set_xlabel(xlabel, fontweight='500', color=COLOR_TEXT)
     ax.set_ylabel(ylabel, fontweight='500', color=COLOR_TEXT)
     ax.grid(True, which='major', linestyle='-', alpha=0.3, color=COLOR_GRID)
@@ -142,14 +143,14 @@ def create_legend(ax, **kwargs):
     return legend
 
 
-def get_distribution_name(dist, df=None, skew_alpha=None):
+def get_distribution_name(mu, sigma, dist, T, rho, df, skew_alpha):
     """Get formatted distribution name for labels."""
     if dist == "gaussian":
-        return "Gaussian"
+        return f"Gaussian - T={T}, ρ={rho}, μ={mu}, σ={sigma}"
     elif dist == "student-t":
-        return f"Student-t (df={df})"
+        return f"Student-t - T={T}, ρ={rho}, μ={mu}, σ={sigma}, df={df}"
     elif dist == "skewnorm":
-        return f"Skew-Normal (α={skew_alpha})"
+        return f"Skew-Normal - T={T}, ρ={rho}, μ={mu}, σ={sigma}, α={skew_alpha}"
     return dist
 
 # ============================================================================
@@ -163,6 +164,7 @@ print("\nGenerating plot...")
 
 fig1, ax1 = plt.subplots(figsize=(10, 6))
 fig1.patch.set_facecolor('white')
+
 
 colors = plt.cm.viridis(np.linspace(0, 1, SAMPLE_COUNT))
 for path, color in zip(sample_paths, colors):
@@ -180,8 +182,10 @@ ax1.plot(
 )
 
 style_axes(
+    fig1,
     ax1,
-    'Example P&L Walks over Multiple Days',
+    f'Example P&L Walks over Multiple Days',
+    get_distribution_name(mu, sigma, dist, T, rho, df, skew_alpha),
     'Days',
     'Total Return'
 )
