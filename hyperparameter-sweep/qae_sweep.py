@@ -551,7 +551,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         alpha_fail = trial.suggest_float("alpha_fail", 0.001, 0.05, log=True)
         prob_tol_mult = trial.suggest_float("prob_tol_mult", 0.05, 0.3)
 
-        prob_tol = alpha_target * prob_tol_mult
+        prob_tol = 0.001
 
         total_cost = 0.0
         total_err = 0.0
