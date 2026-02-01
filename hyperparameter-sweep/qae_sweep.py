@@ -596,7 +596,7 @@ def _estimate_tail_prob_iae(
         if cost == 0:
             cost = int(1.0 / epsilon)
 
-    print(f"    Cost breakdown: powers={getattr(res, 'powers', [])}, total_queries={cost}")
+    # print(f"    Cost breakdown: powers={getattr(res, 'powers', [])}, total_queries={cost}")
 
     return EstResult(p_hat=p_hat, ci_low=ci_low, ci_high=ci_high, cost_oracle_queries=int(cost))
 
