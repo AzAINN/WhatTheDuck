@@ -50,7 +50,7 @@ rho = 0.0                      # AR(1) correlation coefficient
 
 SAMPLE_COUNT = 5
 SAMPLE_DAYS = 30
-OUTPUT = "graphs/walk_days.png"
+OUTPUT = "output/walk_days.png"
 TRUE_MEAN_SAMPLES = 10**5
 
 # ============================================================================
