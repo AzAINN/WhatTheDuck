@@ -248,31 +248,39 @@ def _load_stateprep_qasm(qasm_path: Path):
     """
     Load QASM and decompose to basis gates that Aer understands.
     """
-    try:
-        import qiskit.qasm2 as qasm2
-        qc = qasm2.load(str(qasm_path))
-    except (ImportError, AttributeError):
-        from qiskit import QuantumCircuit
-        qc = QuantumCircuit.from_qasm_file(str(qasm_path))
-    from qiskit.transpiler import PassManager
-    from qiskit.transpiler.passes import Decompose, UnrollCustomDefinitions, BasisTranslator
-    from qiskit.circuit.equivalence_library import SessionEquivalenceLibrary as sel
-
+    # try:
+    #     import qiskit.qasm2 as qasm2
+    #     qc = qasm2.load(str(qasm_path))
+    # except (ImportError, AttributeError):
+    #     from qiskit import QuantumCircuit
+    #     qc = QuantumCircuit.from_qasm_file(str(qasm_path))
+    # from qiskit.transpiler import PassManager
+    # from qiskit.transpiler.passes import Decompose, UnrollCustomDefinitions, BasisTranslator
+    # from qiskit.circuit.equivalence_library import SessionEquivalenceLibrary as sel
+    #
+    # qc = qasm2.load(str(qasm_path))
+    #
+    # # Remove measurements if any
+    # if qc.num_clbits > 0:
+    #     qc.remove_final_measurements(inplace=True)
+    #
+    # # Decompose all custom gates to Aer-supported basis gates
+    # from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+    # from qiskit_aer import AerSimulator
+    #
+    # backend = AerSimulator()
+    # pm = generate_preset_pass_manager(optimization_level=0, backend=backend)
+    # qc_decomposed = pm.run(qc)
+    #
+    # return qc_decomposed
+    import qiskit.qasm2 as qasm2
     qc = qasm2.load(str(qasm_path))
 
     # Remove measurements if any
     if qc.num_clbits > 0:
         qc.remove_final_measurements(inplace=True)
 
-    # Decompose all custom gates to Aer-supported basis gates
-    from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-    from qiskit_aer import AerSimulator
-
-    backend = AerSimulator()
-    pm = generate_preset_pass_manager(optimization_level=0, backend=backend)
-    qc_decomposed = pm.run(qc)
-
-    return qc_decomposed
+    return qc
 
 
 def _make_sampler_v2(device: str, method: str, seed: int, default_shots: int):
@@ -317,11 +325,13 @@ def _build_threshold_stateprep(
     qc.append(comp, asset_wires + anc_wires + obj_wire)
 
     # Transpile the full circuit to basis gates Aer understands
-    backend = AerSimulator()
-    qc_transpiled = transpile(qc, backend=backend, optimization_level=1)
-
+    # backend = AerSimulator()
+    # qc_transpiled = transpile(qc, backend=backend, optimization_level=1)
+    #
+    # objective_index = obj_wire[0]
+    # return qc_transpiled, objective_index
     objective_index = obj_wire[0]
-    return qc_transpiled, objective_index
+    return qc, objective_index
 
 
 
@@ -350,13 +360,10 @@ def _estimate_tail_prob_iae(
         num_asset_qubits=num_asset_qubits,
         threshold_index=threshold_index,
     )
-    # print(f"    Circuit depth={A.depth()}, gates={A.size()}, qubits={A.num_qubits}")  # DEBUG
+    print(f"    Circuit depth={A.depth()}, gates={A.size()}, qubits={A.num_qubits}")  # DEBUG
 
-    problem = EstimationProblem(
-        state_preparation=A,
-        objective_qubits=[obj],
-        is_good_state=lambda bitstr: bitstr == "1",
-    )
+
+    problem = EstimationProblem(state_preparation=A, objective_qubits=[obj])
 
     iae = IterativeAmplitudeEstimation(
         epsilon_target=float(epsilon),
