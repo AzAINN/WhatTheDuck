@@ -44,23 +44,23 @@ def get_log_normal_probabilities(
 
 
 def calculate_classical_var(
-    grid_points: np.ndarray, probs: np.ndarray, confidence_level: float
+    grid_points: np.ndarray, probs: np.ndarray, alpha: float
 ) -> float:
     """Calculate VaR classically using cumulative distribution."""
     accumulated = 0.0
     for i, p in enumerate(probs):
         accumulated += p
-        if accumulated > confidence_level:
+        if accumulated > alpha:
             return grid_points[i]
     return grid_points[-1]
 
 
-def get_var_index(probs: np.ndarray, confidence_level: float) -> int:
+def get_var_index(probs: np.ndarray, alpha: float) -> int:
     """Get the index corresponding to VaR at given confidence level."""
     accumulated = 0.0
     for i, p in enumerate(probs):
         accumulated += p
-        if accumulated > confidence_level:
+        if accumulated > alpha:
             return i
     return len(probs) - 1
 
@@ -144,7 +144,7 @@ def run_iqae_estimation(
 
 def var_parameter_sweep(
     epsilons: List[float],
-    confidence_levels: List[float],
+    alpha_vars: List[float],
     mu: float = MU,
     sigma: float = SIGMA,
     num_qubits: int = NUM_QUBITS,
@@ -156,7 +156,7 @@ def var_parameter_sweep(
     
     Args:
         epsilons: List of IQAE precision parameters
-        confidence_levels: List of VaR confidence levels (e.g., [0.01, 0.05, 0.10])
+        alpha_vars: List of VaR alpha levels (e.g., [0.01, 0.05, 0.10])
         mu: Portfolio expected return
         sigma: Portfolio volatility
         num_qubits: Number of qubits for discretization
@@ -186,14 +186,15 @@ def var_parameter_sweep(
     
     rows = []
     
-    print(f"Starting sweep: {len(epsilons)} epsilons × {len(confidence_levels)} confidence levels")
+    print(f"Starting sweep: {len(epsilons)} epsilons × {len(alpha_vars)} confidence levels")
     
-    for conf_level in confidence_levels:
-        print(f"\n=== Confidence Level: {conf_level:.3f} ===")
+    for alpha_var in alpha_vars:
+        confidence = 1 - alpha_var
+        print(f"\n=== Confidence Level: {confidence:.3f} ===")
         
         # Calculate classical VaR
-        var_theoretical = calculate_classical_var(grid_points, probs, conf_level)
-        var_index = get_var_index(probs, conf_level)
+        var_theoretical = calculate_classical_var(grid_points, probs, alpha_var)
+        var_index = get_var_index(probs, alpha_var)
         GLOBAL_INDEX = int(var_index)
         
         print(f"Classical VaR: {var_theoretical:.4f} (index {var_index})")
@@ -215,7 +216,7 @@ def var_parameter_sweep(
                 
                 rows.append({
                     "epsilon": eps,
-                    "confidence_level": conf_level,
+                    "confidence_level": confidence,
                     "shots": result["shots_total"],
                     "grover_calls": result["grover_calls"],
                     "VaR_theoretical": var_theoretical,
@@ -231,7 +232,7 @@ def var_parameter_sweep(
                 print(f"ERROR: {e}")
                 rows.append({
                     "epsilon": eps,
-                    "confidence_level": conf_level,
+                    "confidence_level": confidence,
                     "shots": None,
                     "grover_calls": None,
                     "VaR_theoretical": var_theoretical,
@@ -269,7 +270,7 @@ if __name__ == "__main__":
     
     var_parameter_sweep(
         epsilons=epsilons,
-        confidence_levels=var_alphas,
+        alpha_vars=var_alphas,
         mu=0.15,
         sigma=0.20,
         num_qubits=7,
