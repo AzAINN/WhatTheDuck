@@ -277,17 +277,18 @@ def _load_stateprep_qasm(qasm_path: Path):
 
 def _make_sampler_v2(device: str, method: str, seed: int, default_shots: int):
     """
-    Create an Aer Sampler configured for GPU when available.
+    Create a Sampler V2 using BackendSamplerV2 wrapping AerSimulator.
     """
-    from qiskit_aer.primitives import Sampler
+    from qiskit_aer import AerSimulator
+    from qiskit.primitives import BackendSamplerV2
 
     backend_options = {"method": method, "seed_simulator": int(seed)}
     if device.upper() == "GPU":
         backend_options["device"] = "GPU"
 
-    run_options = {"shots": int(default_shots)}
+    backend = AerSimulator(**backend_options)
 
-    return Sampler(backend_options=backend_options, run_options=run_options)
+    return BackendSamplerV2(backend=backend, options={"default_shots": default_shots})
 def _build_threshold_stateprep(
     stateprep_asset_only,
     num_asset_qubits: int,
@@ -366,8 +367,6 @@ def _estimate_tail_prob_iae(
         res = iae.estimate(problem)
     else:
         res = iae.run(problem)  # type: ignore
-    # print(f"    IAE result type: {type(res)}, attrs: {dir(res)}")
-    # print(f"    Result: {res}")
     # Extract estimation and CI
     p_hat = float(getattr(res, "estimation", getattr(res, "estimation_processed", np.nan)))
     ci = getattr(res, "confidence_interval", None)
@@ -378,15 +377,10 @@ def _estimate_tail_prob_iae(
 
     # Cost: prefer official attribute if present
     cost = getattr(res, "num_oracle_queries", None)
-    if cost is None or cost == 0:
-        print("Cost issue")
-        powers = getattr(res, "powers", None)
-        shots_list = getattr(res, "shots", None)
-        if powers is not None and shots_list is not None:
-            # Oracle queries = sum of shots * (2*k + 1) for each Grover power k
-            cost = sum(s * (2 * p + 1) for p, s in zip(powers, shots_list))
-        else:
-            cost = 0
+    if cost is None:
+        cost = getattr(res, "num_queries", None)
+    if cost is None:
+        cost = 0
 
     return EstResult(p_hat=p_hat, ci_low=ci_low, ci_high=ci_high, cost_oracle_queries=int(cost))
 
