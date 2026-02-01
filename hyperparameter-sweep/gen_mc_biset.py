@@ -49,8 +49,8 @@ df = 3                         # Degrees of freedom for Student-t
 skew_alpha = 7.0               # Skew parameter for skew-normal
 rho = 0.0                      # AR(1) correlation coefficient
 
-# OUTPUT = '../graphs/data/monte_carlo_bisect.csv'
-OUTPUT = '../step1/quantum/results/mc_sweep.csv'
+OUTPUT = '../graphs/data/monte_carlo_bisect.csv'
+# OUTPUT = '../step1/quantum/results/mc_sweep.csv'
 
 # Make directories for output
 os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
@@ -67,20 +67,19 @@ class MonteCarloResult:
     error: float
 
 E_MAX = 0.1
-E_MIN = 0.001
-epsilon_values = np.logspace(np.log10(E_MAX), np.log10(E_MIN), num=10)
-A_COUNT = 20
-A_MIN = 0.01
-A_MAX = 0.10
-var_alphas = np.linspace(A_MIN, A_MAX, A_COUNT).tolist()
+E_MIN = 0.0005
+epsilon_values = np.logspace(np.log10(E_MAX), np.log10(E_MIN), num=20)
+# A_COUNT = 20
+# A_MIN = 0.01
+# A_MAX = 0.10
+# var_alphas = np.linspace(A_MIN, A_MAX, A_COUNT).tolist()
 
 mc_results = []
-with alive_progress.alive_bar(len(epsilon_values) * len(var_alphas)) as bar:
+with alive_progress.alive_bar(len(epsilon_values)) as bar:
 	for epsilon in epsilon_values:
-          for alpha in var_alphas:
             var_estimate, theoretical_var, num_samples = get_val(epsilon, alpha=0.05)
             print(f"Epsilon: {epsilon:.6e}, Samples: {num_samples}, VaR Estimate: {var_estimate:.6f}, Theoretical VaR: {theoretical_var:.6f}")
-            mc_results.append((alpha,
+            mc_results.append((
                 MonteCarloResult(
                     error=epsilon,
                     num_samples=num_samples,
@@ -102,14 +101,13 @@ CSV_HEADERS = [
     "mu", "sigma", "confidence_level", "T", "dist", "df", "skew_alpha", "rho"
 ]
 
-
 print(f"\nWriting results to {OUTPUT}...")
 
 # Episilon = error
 with alive_progress.alive_bar(len(mc_results)) as bar:
     with open(OUTPUT, 'w') as f:
         f.write(','.join(CSV_HEADERS) + '\n')
-        for alpha, result in mc_results:
+        for result in mc_results:
             row = [
                 f"{result.error:.6e}",
                 str(result.num_samples),
@@ -117,7 +115,7 @@ with alive_progress.alive_bar(len(mc_results)) as bar:
                 f"{theoretical_var:.6f}",
                 f"{mu:.6f}",
                 f"{sigma:.6f}",
-                f"{(1 - alpha):.6f}",
+                f"{(0.05):.6f}",
                 str(T),
                 dist,
                 str(df),
