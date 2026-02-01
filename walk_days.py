@@ -51,6 +51,7 @@ rho = 0.0                      # AR(1) correlation coefficient
 SAMPLE_COUNT = 5
 SAMPLE_DAYS = 30
 OUTPUT = "graphs/walk_days.png"
+TRUE_MEAN_SAMPLES = 10**5
 
 # ============================================================================
 # SAMPLE POINT
@@ -111,15 +112,9 @@ for s in range(SAMPLE_COUNT):
 
 days = [d for d in range(SAMPLE_DAYS + 1)]
 
-raw_datas = [sample_return(mu, sigma, T, dist, df, skew_alpha, rho) for _ in range(200)]
+raw_datas = [sample_return(mu, sigma, T, dist, df, skew_alpha, rho) for _ in range(TRUE_MEAN_SAMPLES)]
 true_mean = sum(raw_datas) / len(raw_datas)
 path_mean = [true_mean * d for d in range(SAMPLE_DAYS + 1)]
-
-# raw_datas = np.array([sample_return(mu, sigma, T, dist, df, skew_alpha, rho) for _ in range(200)])
-# true_mean = raw_datas.mean()
-# d = np.arange(SAMPLE_DAYS + 1)
-# path_mean = true_mean * d
-
 
 # ============================================================================
 # VISUALIZATION HELPERS
