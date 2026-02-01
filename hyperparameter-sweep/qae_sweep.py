@@ -418,7 +418,6 @@ def _estimate_tail_prob_iae(
     # API can be estimate() or run() depending on version.
     # if hasattr(iae, "estimate"):
     res = iae.estimate(problem)
-    print(f"    [Internal Check] Running IAE with shots={sampler_v2.options.run_options.get('shots')}")
     p_hat_raw = float(getattr(res, "estimation", np.nan))
     ci = getattr(res, "confidence_interval", (np.nan, np.nan))
     print(f"    DEBUG: p_hat={p_hat_raw:.6f}, CI=[{ci[0]:.6f}, {ci[1]:.6f}], threshold_idx={threshold_index}")
@@ -548,7 +547,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     def objective(trial: optuna.Trial) -> float:
         # Algorithmic-only params to sweep
-        epsilon = trial.suggest_float("epsilon", 0.01, 0.15)
+        epsilon = trial.suggest_float("epsilon", 0.001, 0.05)
         alpha_fail = trial.suggest_float("alpha_fail", 0.001, 0.05, log=True)
         prob_tol_mult = trial.suggest_float("prob_tol_mult", 0.05, 0.3)
 
