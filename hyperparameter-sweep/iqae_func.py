@@ -90,3 +90,5 @@ def estimate_var_quantum(
         "epsilon": epsilon,
         "bisection_steps": max_steps,  # Actual count would need tracking in solve_var_bisect_quantum
     }
+
+

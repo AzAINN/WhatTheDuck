@@ -862,7 +862,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     max_steps = int(args.max_steps)
 
     def objective(trial: optuna.Trial) -> float:
-        from concurrent.futures import ProcessPoolExecutor, as_completed
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         epsilon = trial.suggest_float("epsilon", 0.001, 0.05, log=True)
         alpha_fail = trial.suggest_float("alpha_fail", 0.001, 0.05, log=True)
