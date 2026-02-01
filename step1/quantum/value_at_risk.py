@@ -140,7 +140,6 @@ def run_iqae_estimation(
 
 def var_parameter_sweep(
     epsilons: List[float],
-    iqae_alphas: List[float],
     alpha: float,
     mu: float = MU,
     sigma: float = SIGMA,
@@ -203,7 +202,7 @@ def var_parameter_sweep(
     
     try:
         # for alpha_var in alpha_vars:
-        for alpha_iqae in iqae_alphas:
+        for alpha_iqae in [alpha_iqae]:
             confidence = 1 - alpha
             print(f"\n=== Alpha_iqae: {alpha_iqae:.3f} (Confidence: {confidence:.3f}) ===")
             
@@ -273,16 +272,18 @@ if __name__ == "__main__":
     E_MAX = 0.1
     E_MIN = 0.001
 
+    # 2nd scope
+    E2 = [0.0005]
+
     AQ_COUNT = 10
     AQ_MIN = 0.1
     AQ_MAX = 0.005
 
-    epsilons = np.logspace(np.log10(E_MAX), np.log10(E_MIN), E_COUNT).tolist()
-    iqae_alphas = np.linspace(AQ_MIN, AQ_MAX, AQ_COUNT).tolist()
+    epsilons = np.logspace(np.log10(E_MAX), np.log10(E_MIN), E_COUNT).tolist() + E2
+    # iqae_alphas = np.linspace(AQ_MIN, AQ_MAX, AQ_COUNT).tolist()
     
     var_parameter_sweep(
         epsilons=epsilons,
-        iqae_alphas=iqae_alphas,
         alpha=0.5,
         mu=0.15,
         sigma=0.20,
