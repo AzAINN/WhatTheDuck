@@ -334,11 +334,17 @@ def _build_threshold_stateprep(
     # Compose state preparation on the first num_asset_qubits wires
     qc.compose(stateprep_asset_only, qubits=list(range(num_asset_qubits)), inplace=True)
 
+    # asset_wires = list(range(num_asset_qubits))
+    # anc_wires = list(range(num_asset_qubits, num_asset_qubits + ancillas))
+    # obj_wire = [num_asset_qubits + ancillas]
+    #
+    # qc.append(comp, asset_wires + anc_wires + obj_wire)
     asset_wires = list(range(num_asset_qubits))
     anc_wires = list(range(num_asset_qubits, num_asset_qubits + ancillas))
-    obj_wire = [num_asset_qubits + ancillas]
+    obj_wire = [num_asset_qubits + ancillas]  # keep obj at the end physically, that's fine
 
-    qc.append(comp, asset_wires + anc_wires + obj_wire)
+    # IMPORTANT: comparator expects [state..., compare, ancillas...]
+    qc.append(comp, asset_wires + obj_wire + anc_wires)
 
     # Transpile the full circuit to basis gates Aer understands
     # backend = AerSimulator()
@@ -502,7 +508,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     # Load all compiled artifacts
     dist_items: List[Dict[str, Any]] = []
-    for data_path in sorted(indir.glob("*.data.npz")):
+    for data_path in sorted(indir.glob("*.data.npz"))[:1]:
         blob = np.load(data_path, allow_pickle=False)
         name = str(blob["dist_name"])
         qasm_path = indir / f"{name}.stateprep.qasm"
