@@ -17,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 from matplotlib.colors import LinearSegmentedColormap
-from scipy.stats import skewnorm
+from scipy.stats import skewnorm, norm
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -248,6 +248,23 @@ def get_distribution_name(dist, df=None, skew_alpha=None):
     elif dist == "skewnorm":
         return f"Skew-Normal (α={skew_alpha})"
     return dist
+
+
+def discretized_var_error_curve(mu, sigma, confidence_level, num_qubits_list):
+    alpha = 1 - confidence_level
+    var_true = float(norm.ppf(alpha, loc=mu, scale=sigma))
+    errors = []
+    for q in num_qubits_list:
+        low = mu - 3 * sigma
+        high = mu + 3 * sigma
+        grid = np.linspace(low, high, 2**q)
+        probs = norm.pdf(grid, loc=mu, scale=sigma)
+        probs = probs / np.sum(probs)
+        cdf = np.cumsum(probs)
+        idx = int(np.argmax(cdf >= alpha))
+        var_disc = float(grid[idx])
+        errors.append(abs(var_disc - var_true))
+    return errors
 
 
 # ============================================================================
@@ -481,6 +498,46 @@ def main():
     plt.savefig(f'{output_dir}/00_distribution.png',
                 bbox_inches='tight', facecolor=COLOR_BG, edgecolor='none')
     print("✓ Saved: 00_distribution.png")
+    plt.close()
+
+    # ============================================================================
+    # DISCRETIZATION ERROR (CLASSICAL)
+    # ============================================================================
+
+    print("\nGenerating discretization error visualization...")
+    qubits_list = list(range(4, 11))
+    grid_sizes = [2**q for q in qubits_list]
+    disc_err = discretized_var_error_curve(mu, sigma, confidence_level, qubits_list)
+
+    fig_disc, ax_disc = plt.subplots(figsize=(10, 6))
+    fig_disc.patch.set_facecolor(COLOR_BG)
+    add_branding(fig_disc)
+    apply_background(ax_disc)
+
+    glow_line(
+        ax_disc,
+        grid_sizes,
+        disc_err,
+        color=COLOR_ACCENT,
+        lw=2.2,
+        label="Discretization error",
+        marker="o",
+        markersize=4,
+        alpha=0.9,
+    )
+
+    style_axes(
+        ax_disc,
+        "Classical Discretization Error vs Grid Resolution",
+        "Grid size (number of bins)",
+        "|VaR_continuous − VaR_discretized|",
+    )
+    create_legend(ax_disc, loc="best")
+
+    plt.tight_layout()
+    plt.savefig(f'{output_dir}/00b_discretization_error.png',
+                bbox_inches='tight', facecolor=COLOR_BG, edgecolor='none')
+    print("✓ Saved: 00b_discretization_error.png")
     plt.close()
 
     # ============================================================================
