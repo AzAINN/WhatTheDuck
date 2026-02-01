@@ -866,27 +866,29 @@ def cmd_run(args: argparse.Namespace) -> None:
     max_steps = int(args.max_steps)
 
     def objective(trial: optuna.Trial) -> float:
-        # Algorithmic-only params to sweep
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
         epsilon = trial.suggest_float("epsilon", 0.001, 0.05, log=True)
         alpha_fail = trial.suggest_float("alpha_fail", 0.001, 0.05, log=True)
         prob_tol_mult = trial.suggest_float("prob_tol_mult", 0.05, 0.3)
 
-        total_cost = 0.0
-        total_err = 0.0
-        max_err = 0.0
-
-        for i, dd in enumerate(dist_items):
+        def run_dist(dd):
             cdf = np.cumsum(dd["probs"])
-            min_cdf_gap = np.min(np.diff(cdf[cdf > 0]))  # Smallest non-zero CDF step
             diffs = np.diff(np.unique(cdf))
             min_pos_gap = diffs[diffs > 0].min() if np.any(diffs > 0) else 0.0
-
             base_tol = max(0.5 * min_pos_gap, 0.005)
             prob_tol = prob_tol_mult * base_tol
 
-            print(f"DEBUG: prob_tol={prob_tol:.6f}, min_cdf_gap={min_cdf_gap:.6f}")
+            # Each process needs its own sampler
+            local_sampler = _make_sampler_v2(
+                device=args.device,
+                method=args.method,
+                seed=args.seed,
+                default_shots=args.shots,
+            )
+
             var_hat, _, cost = solve_var_bisect_quantum(
-                sampler_v2=sampler_v2,
+                sampler_v2=local_sampler,
                 stateprep_asset_only=dd["stateprep"],
                 grid_points=dd["grid"],
                 probs=dd["probs"],
@@ -896,21 +898,22 @@ def cmd_run(args: argparse.Namespace) -> None:
                 prob_tol=prob_tol,
                 max_steps=max_steps,
             )
-
             err = abs(var_hat - dd["ref_var"]) / (abs(dd["ref_var"]) + 1e-9)
-            print(f"  [{dd['name']}] var_hat={var_hat:.4f}, ref={dd['ref_var']:.4f}, err={err:.6f}, cost={cost}")
+            return dd["name"], var_hat, dd["ref_var"], err, cost
 
-            total_cost += float(cost)
-            total_err += float(err)
-            max_err = max(max_err, float(err))
+        with ProcessPoolExecutor(max_workers=min(len(dist_items), 8)) as pool:
+            futures = [pool.submit(run_dist, dd) for dd in dist_items]
+            results = [f.result() for f in as_completed(futures)]
 
-            trial.report(total_cost / (i + 1), step=i)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
+        total_cost = sum(r[4] for r in results)
+        total_err = sum(r[3] for r in results)
+        max_err = max(r[3] for r in results)
+
+        for name, var_hat, ref_var, err, cost in results:
+            print(f"  [{name}] var_hat={var_hat:.4f}, ref={ref_var:.4f}, err={err:.6f}, cost={cost}")
 
         avg_cost = total_cost / len(dist_items)
         avg_err = total_err / len(dist_items)
-        # same style you used: cost + strong penalty on error
         return avg_cost + 1e6 * avg_err + 1e5 * max_err
 
     sampler = optuna.samplers.TPESampler(seed=args.seed)
