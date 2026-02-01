@@ -61,7 +61,7 @@ def run_all_dists(indir, outfile, seed=42):
 def run_single_dist(indir, outfile, dist_name="normal", seed=42):
     """Single distribution, many points for detailed scaling."""
     n_samples_list = np.unique(np.logspace(1, 7, 500).astype(int))
-    epsilons = np.clip(np.logspace(-3, -0.2, 400), 1e-6, 0.49)
+    epsilons = np.clip(np.logspace(-3, -0.2, 300), 1e-6, 0.49)
 
     data_path = indir / f"{dist_name}.data.npz"
     blob = np.load(data_path)
