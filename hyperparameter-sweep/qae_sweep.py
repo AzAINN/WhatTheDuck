@@ -419,14 +419,10 @@ def _estimate_tail_prob_iae(
         num_asset_qubits=num_asset_qubits,
         threshold_index=threshold_index,
     )
-    # problem = EstimationProblem(
-    #     state_preparation=A,
-    #     objective_qubits=[obj],
-    #     is_good_state=lambda bitstr: bitstr[obj] == "1"  # Logic check
-    # )
     problem = EstimationProblem(
         state_preparation=A,
         objective_qubits=[obj],
+        is_good_state=lambda bitstr: bitstr[obj] == "1"  # Logic check
     )
 
     # 3. Run IAE
@@ -514,8 +510,7 @@ def solve_var_bisect_quantum(
     t_hat = lo
     idx_hat = max(0, t_hat - 1)
 
-    return grid_points[idx_hat], idx_hat, total_cost
-
+    return float(grid_points[lo]), int(lo), int(total_cost)
 
 
 def cmd_run(args: argparse.Namespace) -> None:
