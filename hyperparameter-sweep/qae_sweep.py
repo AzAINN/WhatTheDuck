@@ -414,22 +414,54 @@ def _estimate_tail_prob_iae(
     #     alpha=float(alpha_fail),
     #     sampler=sampler_v2,
     # )
+    # A, obj = _build_threshold_stateprep(
+    #     stateprep_asset_only=stateprep_asset_only,
+    #     num_asset_qubits=num_asset_qubits,
+    #     threshold_index=threshold_index,
+    # )
+    # # problem = EstimationProblem(
+    # #     state_preparation=A,
+    # #     objective_qubits=[obj],
+    # #     is_good_state=lambda bitstr: bitstr[obj] == "1"  # Logic check
+    # # )
+    # problem = EstimationProblem(
+    #     state_preparation=A,
+    #     objective_qubits=[obj],
+    # )
+    #
+    # # 3. Run IAE
+    # iae = IterativeAmplitudeEstimation(
+    #     epsilon_target=float(epsilon),
+    #     alpha=float(alpha_fail),
+    #     sampler=sampler_v2,
+    # )
+    from qiskit.circuit.library import GroverOperator
+
     A, obj = _build_threshold_stateprep(
         stateprep_asset_only=stateprep_asset_only,
         num_asset_qubits=num_asset_qubits,
         threshold_index=threshold_index,
     )
-    # problem = EstimationProblem(
-    #     state_preparation=A,
-    #     objective_qubits=[obj],
-    #     is_good_state=lambda bitstr: bitstr[obj] == "1"  # Logic check
-    # )
+    from qiskit import QuantumCircuit
+
+    # Build oracle that flips phase of marked states (objective qubit = |1⟩)
+    oracle = QuantumCircuit(A.num_qubits)
+    oracle.z(obj)  # Phase flip on objective qubit
+
+    # Explicit Grover operator: Q = A S_0 A† S_χ
+    Q = GroverOperator(
+        oracle=oracle,
+        state_preparation=A,
+        reflection_qubits=None,  # Reflect on all qubits
+        insert_barriers=False,
+    )
+
     problem = EstimationProblem(
         state_preparation=A,
+        grover_operator=Q,
         objective_qubits=[obj],
     )
 
-    # 3. Run IAE
     iae = IterativeAmplitudeEstimation(
         epsilon_target=float(epsilon),
         alpha=float(alpha_fail),
