@@ -30,7 +30,7 @@ from scipy.stats import norm
 # VALUE-AT-RISK SETTINGS (match value_at_risk.py)
 # ============================================================================
 
-CSV = "../data3.csv"
+CSV = "../data5.csv"
 OUTPUT = "./e_vs_n.png"
 
 
@@ -160,7 +160,7 @@ def main():
         mc_n=results_mc['queries'].to_numpy(),
         mc_err=results_mc['error'].to_numpy(),
         iqae_budget=results_qc['queries'].to_numpy(),
-        iqae_err=results_qc['error'].to_numpy(),
+        iqae_err=results_qc['epsilon'].to_numpy(),
         output_path=OUTPUT,
     )
 

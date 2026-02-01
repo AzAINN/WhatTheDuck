@@ -13,7 +13,7 @@ var_alpha = 0.05
 # error = |p_hat - true_p|
 # queries = grover_calls
 
-FROM_CSV = "./results/var_sweep_04.csv"
+FROM_CSV = "./results/var_sweep_05.csv"
 TO_CSV = "./data.csv"
 
 def convert_csv():
