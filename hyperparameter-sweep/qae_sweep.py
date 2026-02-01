@@ -580,7 +580,6 @@ def cmd_run(args: argparse.Namespace) -> None:
             min_cdf_gap = np.min(np.diff(cdf[cdf > 0]))  # Smallest non-zero CDF step
             prob_tol = max(0.5 * min_cdf_gap, 0.005)  # At least 0.5% or half the gap
             print(f"DEBUG: prob_tol={prob_tol:.6f}, min_cdf_gap={min_cdf_gap:.6f}")
-            print(f"DEBUG: alpha_arg={args.alpha} alpha_target={alpha_target}")
             var_hat, _, cost = solve_var_bisect_quantum(
                 sampler_v2=sampler_v2,
                 stateprep_asset_only=dd["stateprep"],
@@ -607,7 +606,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         avg_cost = total_cost / len(dist_items)
         avg_err = total_err / len(dist_items)
         # same style you used: cost + strong penalty on error
-        return avg_cost / 50000 + 1e6 * avg_err + 1e5 * max_err
+        return avg_cost + 1e6 * avg_err + 1e5 * max_err
 
     sampler = optuna.samplers.TPESampler(seed=args.seed)
     pruner = optuna.pruners.MedianPruner(n_startup_trials=max(5, args.trials // 4))
