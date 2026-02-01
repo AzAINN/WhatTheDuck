@@ -83,7 +83,8 @@ def create_legend(ax, **kwargs):
 def get_distribution_name(mu, sigma, dist, T, rho, df, skew_alpha):
     """Get formatted distribution name for labels."""
     if dist == "gaussian":
-        return f"Gaussian - T={T}, ρ={rho}, μ={mu}, σ={sigma}"
+        # return f"Gaussian - T={T}, ρ={rho}, μ={mu}, σ={sigma}"
+        return f"Gaussian - μ={mu}, σ={sigma}"
     elif dist == "student-t":
         return f"Student-t - T={T}, ρ={rho}, μ={mu}, σ={sigma}, df={df}"
     elif dist == "skewnorm":
@@ -127,8 +128,8 @@ ax_dist.set_facecolor('#fafafa')
 
 # Histogram
 counts, bins, patches = ax_dist.hist(
-    total_returns, bins=100, alpha=0.7, color=COLOR_DIST,
-    density=True, edgecolor='white', linewidth=0.5, label='Simulated Returns'
+    total_returns, bins=250, alpha=0.7, color=COLOR_DIST,
+    density=True, edgecolor='white', linewidth=0, label='Simulated Returns'
 )
 
 # VaR line
@@ -157,19 +158,19 @@ style_axes(
 create_legend(ax_dist, loc='best')
 
 # Add statistics text box
-stats_text = (
-    f'Statistics:\n'
-    f'Mean: {np.mean(total_returns):.5f}\n'
-    f'Std Dev: {np.std(total_returns):.5f}\n'
-    f'VaR: {var_for_plot:.5f}\n'
-    f'N: {theoretical_N:,}'
-)
-ax_dist.text(
-    0.02, 0.98, stats_text, transform=ax_dist.transAxes,
-    fontsize=10, verticalalignment='top',
-    bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
-              edgecolor=COLOR_GRID, alpha=0.9)
-)
+# stats_text = (
+#     f'Statistics:\n'
+#     f'Mean: {np.mean(total_returns):.5f}\n'
+#     f'Std Dev: {np.std(total_returns):.5f}\n'
+#     f'VaR: {var_for_plot:.5f}\n'
+#     f'N: {theoretical_N:,}'
+# )
+# ax_dist.text(
+#     0.02, 0.98, stats_text, transform=ax_dist.transAxes,
+#     fontsize=10, verticalalignment='top',
+#     bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
+#               edgecolor=COLOR_GRID, alpha=0.9)
+# )
 
 plt.tight_layout()
 plt.savefig(OUTPUT, bbox_inches='tight', facecolor='white', edgecolor='none')
