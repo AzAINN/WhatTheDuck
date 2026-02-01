@@ -91,11 +91,11 @@ sigma = 0.20                   # Daily volatility (20%)
 confidence_level = 0.95        # VaR confidence level
 
 # Multi-day and distribution settings
-T = 5                          # Number of days for multi-day VaR
-dist = "skewnorm"              # Distribution: "gaussian", "student-t", "skewnorm"
+T = 1                          # Number of days for multi-day VaR
+dist = "gaussian"              # Distribution: "gaussian", "student-t", "skewnorm"
 df = 3                         # Degrees of freedom for Student-t
 skew_alpha = 7.0               # Skew parameter for skew-normal
-rho = 0.6                      # AR(1) correlation coefficient
+rho = 0.0                      # AR(1) correlation coefficient
 
 # Sort by N
 results_mc = results_mc.sort_values(by="N")
@@ -191,17 +191,17 @@ ax1.plot(
     results_mc["N"], results_mc["Epsilon"],
     marker='o', markersize=4, linewidth=2,
     color=COLOR_MC, alpha=0.8,
-    label='Monte Carlo Estimate', zorder=3
+    label='Monte Carlo Naive Estimate', zorder=3
 )
 ax1.plot(
 	results_qc["N"], results_qc["Epsilon"],
 	marker='o', markersize=4, linewidth=2,
 	color=COLOR_QC, alpha=0.8,
-	label='Quantum Estimate', zorder=3
+	label='Monte Carlo Bisection Estimate', zorder=3
 )
 
-add_trend_line(ax1, results_mc["N"], results_mc["Epsilon"], COLOR_MC, "Monte Carlo")
-add_trend_line(ax1, results_qc["N"], results_qc["Epsilon"], COLOR_QC, "Quantum")
+add_trend_line(ax1, results_mc["N"], results_mc["Epsilon"], COLOR_MC, "Monte Carlo Naive")
+add_trend_line(ax1, results_qc["N"], results_qc["Epsilon"], COLOR_QC, "Monte Carlo Bisection")
 
 ax1.set_xscale('log')
 ax1.set_yscale('log')
