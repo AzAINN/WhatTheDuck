@@ -269,9 +269,9 @@ def var_parameter_sweep(
 
 if __name__ == "__main__":
     # Define sweep parameters
-    E_COUNT = 20
+    E_COUNT = 10
     E_MAX = 0.1
-    E_MIN = 0.0001
+    E_MIN = 0.001
 
     AQ_COUNT = 10
     AQ_MIN = 0.1
