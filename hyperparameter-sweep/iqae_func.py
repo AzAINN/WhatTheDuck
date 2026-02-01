@@ -61,7 +61,7 @@ def all_dist():
     print("Done")
 
 if __name__ == '__main__':
-    indir = Path("build_qasm")
+    indir = Path("build_qasm_10")
     seed = 42
 
     n_samples_list = np.unique(np.logspace(1, 6, 100).astype(int))  # 100 points

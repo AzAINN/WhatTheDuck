@@ -144,7 +144,7 @@ def _load_manifest(indir: Path) -> Dict:
 
 
 def _make_aer_gpu_backend():
-    # Aer GPU runs with device="GPU" in AerSimulator. :contentReference[oaicite:12]{index=12}
+    # Aer GPU runs with device="GPU" in AerSimulator.
     from qiskit_aer import AerSimulator
 
     backend = AerSimulator(method="statevector", device="GPU")
