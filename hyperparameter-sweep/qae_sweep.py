@@ -277,18 +277,17 @@ def _load_stateprep_qasm(qasm_path: Path):
 
 def _make_sampler_v2(device: str, method: str, seed: int, default_shots: int):
     """
-    Create a Sampler V2 using BackendSamplerV2 wrapping AerSimulator.
+    Create an Aer Sampler configured for GPU when available.
     """
-    from qiskit_aer import AerSimulator
-    from qiskit.primitives import BackendSamplerV2
+    from qiskit_aer.primitives import Sampler
 
     backend_options = {"method": method, "seed_simulator": int(seed)}
     if device.upper() == "GPU":
         backend_options["device"] = "GPU"
 
-    backend = AerSimulator(**backend_options)
+    run_options = {"shots": int(default_shots)}
 
-    return BackendSamplerV2(backend=backend, options={"default_shots": default_shots})
+    return Sampler(backend_options=backend_options, run_options=run_options)
 def _build_threshold_stateprep(
     stateprep_asset_only,
     num_asset_qubits: int,
@@ -366,6 +365,7 @@ def _estimate_tail_prob_iae(
     # if hasattr(iae, "estimate"):
     res = iae.estimate(problem)
     print(f"    DEBUG: powers={getattr(res, 'powers', None)}, shots={getattr(res, 'shots', None)}")
+
     # else:
     #     res = iae.run(problem)  # type: ignore
     # Extract estimation and CI
