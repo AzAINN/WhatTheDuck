@@ -585,15 +585,22 @@ def _estimate_tail_prob_iae(
 
     # Cost: prefer official attribute if present
     cost = getattr(res, "num_oracle_queries", None)
-    if cost is None or cost == 0:
+    if cost == 0:
         powers = getattr(res, "powers", [])
-        shots_list = getattr(res, "shots", [])
-        if powers and shots_list and len(powers) == len(shots_list):
-            # Each power k uses (2k+1) oracle calls per shot
-            cost = sum((2 * k + 1) * s for k, s in zip(powers, shots_list))
-        else:
-            # estimate from epsilon
-            cost = int(np.ceil(1.0 / epsilon))
+        # IQAE internally tracks shots per round
+        num_rounds = len(powers)
+        if num_rounds > 0:
+            # Estimate: each round uses ~100 shots by default in IQAE
+            shots_per_round = getattr(res, "shots", [100] * num_rounds)
+            if isinstance(shots_per_round, int) or shots_per_round is None:
+                shots_per_round = [100] * num_rounds
+            cost = sum((2 * k + 1) * s for k, s in zip(powers, shots_per_round))
+
+        # Fallback minimum
+        if cost == 0:
+            cost = int(1.0 / epsilon)
+
+    print(f"    Cost breakdown: powers={getattr(res, 'powers', [])}, total_queries={cost}")
 
     return EstResult(p_hat=p_hat, ci_low=ci_low, ci_high=ci_high, cost_oracle_queries=int(cost))
 
@@ -655,6 +662,50 @@ def solve_var_bisect_quantum(
     return grid_points[idx_hat], idx_hat, total_cost
 
 
+def benchmark_scaling(
+        *,
+        sampler_v2,
+        stateprep_asset_only,
+        grid_points: np.ndarray,
+        probs: np.ndarray,
+        alpha_target: float,
+        alpha_fail: float = 0.01,
+) -> Dict[str, List]:
+    """Run at multiple epsilon values to demonstrate O(1/ε) scaling."""
+    import time
+
+    epsilons = [0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001, 0.0005]
+    results = {"epsilon": [], "queries": [], "error": [], "powers_max": [], "time_s": []}
+
+    n = len(grid_points)
+    num_qubits = int(np.log2(n))
+    ref_var, ref_idx = compute_true_var(grid_points, probs, alpha_target)
+
+    for eps in epsilons:
+        t0 = time.time()
+        var_hat, idx_hat, cost = solve_var_bisect_quantum(
+            sampler_v2=sampler_v2,
+            stateprep_asset_only=stateprep_asset_only,
+            grid_points=grid_points,
+            probs=probs,
+            alpha_target=alpha_target,
+            epsilon=eps,
+            alpha_fail=alpha_fail,
+            prob_tol=eps / 2,
+            max_steps=64,
+        )
+        elapsed = time.time() - t0
+
+        err = abs(var_hat - ref_var) / (abs(ref_var) + 1e-9)
+        results["epsilon"].append(eps)
+        results["queries"].append(cost)
+        results["error"].append(err)
+        results["time_s"].append(elapsed)
+
+        print(f"  ε={eps:.4f}: queries={cost:,}, err={err:.6f}, time={elapsed:.2f}s")
+
+    return results
+
 def cmd_run(args: argparse.Namespace) -> None:
     import optuna
 
@@ -704,7 +755,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     def objective(trial: optuna.Trial) -> float:
         # Algorithmic-only params to sweep
-        epsilon = trial.suggest_float("epsilon", 0.001, 0.05)
+        epsilon = trial.suggest_float("epsilon", 0.0001, 0.005, log=True)
         alpha_fail = trial.suggest_float("alpha_fail", 0.001, 0.05, log=True)
         prob_tol_mult = trial.suggest_float("prob_tol_mult", 0.05, 0.3)
 
