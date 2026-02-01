@@ -198,7 +198,7 @@ def var_parameter_sweep(
     csv_file.flush()
     
     print(f"Writing results to: {output_path}")
-    print(f"Starting sweep: {len(epsilons)} epsilons × {len(iqae_alphas)} alphas")
+    print(f"Starting sweep: {len(epsilons)} epsilons")
     
     try:
         # for alpha_var in alpha_vars:
