@@ -248,7 +248,12 @@ def _load_stateprep_qasm(qasm_path: Path):
     """
     Load QASM and decompose to basis gates that Aer understands.
     """
-    import qiskit.qasm2 as qasm2
+    try:
+        import qiskit.qasm2 as qasm2
+        qc = qasm2.load(str(qasm_path))
+    except (ImportError, AttributeError):
+        from qiskit import QuantumCircuit
+        qc = QuantumCircuit.from_qasm_file(str(qasm_path))
     from qiskit.transpiler import PassManager
     from qiskit.transpiler.passes import Decompose, UnrollCustomDefinitions, BasisTranslator
     from qiskit.circuit.equivalence_library import SessionEquivalenceLibrary as sel
@@ -275,17 +280,14 @@ def _make_sampler_v2(device: str, method: str, seed: int, default_shots: int):
     Create an Aer Sampler configured for GPU when available.
     """
     from qiskit_aer.primitives import Sampler
-    from qiskit_aer import AerSimulator
 
     backend_options = {"method": method, "seed_simulator": int(seed)}
     if device.upper() == "GPU":
         backend_options["device"] = "GPU"
 
-    backend = AerSimulator(**backend_options)
+    run_options = {"shots": int(default_shots)}
 
-    # V1 Sampler: pass shots in run_options
-    return Sampler(backend=backend, options={"shots": int(default_shots)})
-
+    return Sampler(backend_options=backend_options, run_options=run_options)
 def _build_threshold_stateprep(
     stateprep_asset_only,
     num_asset_qubits: int,
