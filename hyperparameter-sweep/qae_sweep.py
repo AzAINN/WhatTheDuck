@@ -526,8 +526,6 @@ def _estimate_tail_prob_iae(
     while Q.depth() != prev_depth:
         prev_depth = Q.depth()
         Q = Q.decompose()
-    print(f"    Q depth={Q.depth()}, Q gates={Q.size()}")
-    print(f"    Q qubits={Q.num_qubits}, asset_qubits={num_asset_qubits}")
 
     problem = EstimationProblem(
         state_preparation=A,
@@ -573,8 +571,6 @@ def _estimate_tail_prob_iae(
     res = iae.estimate(problem)
     p_hat_raw = float(getattr(res, "estimation", np.nan))
     ci = getattr(res, "confidence_interval", (np.nan, np.nan))
-    print(f"    DEBUG: p_hat={p_hat_raw:.6f}, CI=[{ci[0]:.6f}, {ci[1]:.6f}], threshold_idx={threshold_index}")
-    print(f"    DEBUG: powers={getattr(res, 'powers', None)}, shots={getattr(res, 'shots', None)}")
 
     p_hat = float(getattr(res, "estimation", getattr(res, "estimation_processed", np.nan)))
     ci = getattr(res, "confidence_interval", None)
