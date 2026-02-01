@@ -318,14 +318,9 @@ def _build_threshold_stateprep(
 
     # Transpile the full circuit to basis gates Aer understands
     backend = AerSimulator()
-    qc_transpiled = transpile(
-        qc,
-        backend=backend,
-        optimization_level=0,
-        layout_method="trivial",
-        routing_method="none",
-    )
-    objective_index = obj_wire[0]  # now stable
+    qc_transpiled = transpile(qc, backend=backend, optimization_level=1)
+
+    objective_index = obj_wire[0]
     return qc_transpiled, objective_index
 
 
@@ -383,10 +378,15 @@ def _estimate_tail_prob_iae(
 
     # Cost: prefer official attribute if present
     cost = getattr(res, "num_oracle_queries", None)
-    if cost is None:
-        cost = getattr(res, "num_queries", None)
-    if cost is None:
-        cost = 0
+    if cost is None or cost == 0:
+        print("Cost issue")
+        powers = getattr(res, "powers", None)
+        shots_list = getattr(res, "shots", None)
+        if powers is not None and shots_list is not None:
+            # Oracle queries = sum of shots * (2*k + 1) for each Grover power k
+            cost = sum(s * (2 * p + 1) for p, s in zip(powers, shots_list))
+        else:
+            cost = 0
 
     return EstResult(p_hat=p_hat, ci_low=ci_low, ci_high=ci_high, cost_oracle_queries=int(cost))
 
