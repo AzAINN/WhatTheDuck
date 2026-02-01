@@ -542,7 +542,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     for dd in dist_items:
         dd["stateprep"] = _load_stateprep_qasm(dd["qasm_path"])
 
-    alpha_target = float(args.alpha)
+    alpha_target = float(args.alpha) * 0.01
     max_steps = int(args.max_steps)
 
     def objective(trial: optuna.Trial) -> float:
