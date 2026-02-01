@@ -245,13 +245,30 @@ class EstResult:
 
 
 def _load_stateprep_qasm(qasm_path: Path):
-    # Prefer qiskit.qasm2 (fast + official).
+    """
+    Load QASM and decompose to basis gates that Aer understands.
+    """
     import qiskit.qasm2 as qasm2
+    from qiskit.transpiler import PassManager
+    from qiskit.transpiler.passes import Decompose, UnrollCustomDefinitions, BasisTranslator
+    from qiskit.circuit.equivalence_library import SessionEquivalenceLibrary as sel
+
     qc = qasm2.load(str(qasm_path))
-    # Ensure no measurements.
+
+    # Remove measurements if any
     if qc.num_clbits > 0:
         qc.remove_final_measurements(inplace=True)
-    return qc
+
+    # Decompose all custom gates to Aer-supported basis gates
+    from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+    from qiskit_aer import AerSimulator
+
+    backend = AerSimulator()
+    pm = generate_preset_pass_manager(optimization_level=0, backend=backend)
+    qc_decomposed = pm.run(qc)
+
+    return qc_decomposed
+
 
 
 def _make_sampler_v2(device: str, method: str, seed: int, default_shots: int):
