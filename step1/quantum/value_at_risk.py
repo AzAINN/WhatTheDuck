@@ -268,18 +268,15 @@ def var_parameter_sweep(
 
 if __name__ == "__main__":
     # Define sweep parameters
-    E_COUNT = 10
+    E_COUNT = 15
     E_MAX = 0.1
-    E_MIN = 0.001
+    E_MIN = 0.0005
 
-    # 2nd scope
-    E2 = [0.0005]
+    # AQ_COUNT = 10
+    # AQ_MIN = 0.1
+    # AQ_MAX = 0.005
 
-    AQ_COUNT = 10
-    AQ_MIN = 0.1
-    AQ_MAX = 0.005
-
-    epsilons = np.logspace(np.log10(E_MAX), np.log10(E_MIN), E_COUNT).tolist() + E2
+    epsilons = np.logspace(np.log10(E_MAX), np.log10(E_MIN), E_COUNT).tolist()
     # iqae_alphas = np.linspace(AQ_MIN, AQ_MAX, AQ_COUNT).tolist()
     
     var_parameter_sweep(
