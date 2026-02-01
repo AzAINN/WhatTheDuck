@@ -5,6 +5,7 @@
 	- [x] Add the distribution info to the graph
 - [x] Converence comparisons
 	- [ ] Colors may need to be fixed
-- [ ] N vs Epsilon comparisons
+- [x] N vs Epsilon comparisons
+	- [ ] Colors may need to be fixed
 - [ ] Distribution viewer
 - 3d attempt??
