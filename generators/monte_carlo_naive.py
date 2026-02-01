@@ -26,7 +26,7 @@ confidence_level = 0.95        # VaR confidence level
 
 # Multi-day and distribution settings
 T = 1                          # Number of days for multi-day VaR
-dist = "skewnorm"              # Distribution: "gaussian", "student-t", "skewnorm"
+dist = "gaussian"              # Distribution: "gaussian", "student-t", "skewnorm"
 df = 3                         # Degrees of freedom for Student-t
 skew_alpha = 7.0               # Skew parameter for skew-normal
 rho = 0.0                      # AR(1) correlation coefficient
