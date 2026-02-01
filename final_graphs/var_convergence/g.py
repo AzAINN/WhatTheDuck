@@ -32,18 +32,21 @@ COLOR_THEORETICAL = '#bf616a'
 # ============================================================================
 
 # method,dist,queries,epsilon,p_hat,true_p,error
-CSV = "../data2.csv"
+CSV = "../data3.csv"
 OUTPUT = "./var_convergence.png"
 
 results = pd.read_csv(CSV)
 
-# Keep only relevant rows (dist = normal)
+# Keep only relevant rows (dist = normal, var_alpha = 0.05)
 dist = "normal"
 results = results[results['dist'] == dist]
+results = results[results['var_alpha'] == 0.05]
 
 # Split into MC and QC
 results_mc = results[results['method'] == 'classical'].copy()
 results_qc = results[results['method'] == 'quantum'].copy()
+
+print(f"QC points: {len(results_qc)}")
 
 # sort by queries
 results_mc = results_mc.sort_values(by='queries')
@@ -102,12 +105,12 @@ fig1, ax1 = plt.subplots(figsize=(10, 6))
 fig1.patch.set_facecolor('white')
 
 
-ax1.plot(
-    results_mc["queries"], results_mc["p_hat"],
-    marker='o', markersize=4, linewidth=2,
-    # color=COLOR_MC, alpha=0.8,
-    label='Monte Carlo Estimate', zorder=3
-)
+# ax1.plot(
+#     results_mc["queries"], results_mc["p_hat"],
+#     marker='o', markersize=4, linewidth=2,
+#     # color=COLOR_MC, alpha=0.8,
+#     label='Monte Carlo Estimate', zorder=3
+# )
 ax1.plot(
 	results_qc["queries"], results_qc["p_hat"],
 	marker='o', markersize=4, linewidth=2,
@@ -123,7 +126,7 @@ ax1.set_xscale('log')
 
 style_axes(
     ax1,
-    'Convergence of Monte Carlo VaR Estimation',
+    'Convergence of VaR Estimation',
     'Number of Samples (N) [log scale]',
     f'Value-at-Risk ({int(.95*100)}% Confidence)'
 )

@@ -30,7 +30,7 @@ from scipy.stats import norm
 # VALUE-AT-RISK SETTINGS (match value_at_risk.py)
 # ============================================================================
 
-CSV = "../data2.csv"
+CSV = "../data3.csv"
 OUTPUT = "./e_vs_n.png"
 
 
