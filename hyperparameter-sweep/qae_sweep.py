@@ -293,30 +293,25 @@ def _make_sampler_v2(device: str, method: str, seed: int, default_shots: int):
 
 
 def _build_threshold_stateprep(
-    *,
     stateprep_asset_only,
     num_asset_qubits: int,
     threshold_index: int,
 ):
     """
-    Build A(threshold): stateprep(asset) then objective ^= (asset < threshold_index),
-    using IntegerComparator. Returns (A_circuit, objective_qubit_index).
+    Build state-prep + threshold oracle circuit, transpiled for Aer.
     """
-    from qiskit import QuantumCircuit
+    from qiskit import QuantumCircuit, transpile
     from qiskit.circuit.library import IntegerComparator
+    from qiskit_aer import AerSimulator
 
-    comp = IntegerComparator(num_state_qubits=num_asset_qubits, value=int(threshold_index), geq=False)
-
-    # IntegerComparator is a circuit with its own expected wire count.
-    # We map: [asset_qubits][ancillas][objective]
-    total_wires = comp.num_qubits
-    ancillas = total_wires - num_asset_qubits - 1
+    comp = IntegerComparator(num_state_qubits=num_asset_qubits, value=threshold_index, geq=False)
+    ancillas = comp.num_qubits - (num_asset_qubits + 1)
     if ancillas < 0:
-        raise RuntimeError("Unexpected IntegerComparator wire count; cannot map wires safely.")
+        ancillas = 0
 
     qc = QuantumCircuit(num_asset_qubits + ancillas + 1)
 
-    # Compose state preparation on the first num_asset_qubits wires.
+    # Compose state preparation on the first num_asset_qubits wires
     qc.compose(stateprep_asset_only, qubits=list(range(num_asset_qubits)), inplace=True)
 
     asset_wires = list(range(num_asset_qubits))
@@ -325,8 +320,13 @@ def _build_threshold_stateprep(
 
     qc.append(comp, asset_wires + anc_wires + obj_wire)
 
+    # Transpile the full circuit to basis gates Aer understands
+    backend = AerSimulator()
+    qc_transpiled = transpile(qc, backend=backend, optimization_level=1)
+
     objective_index = obj_wire[0]
-    return qc, objective_index
+    return qc_transpiled, objective_index
+
 
 
 def _estimate_tail_prob_iae(
