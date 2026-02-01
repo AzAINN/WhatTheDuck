@@ -781,9 +781,8 @@ def cmd_benchmark(args: argparse.Namespace) -> None:
     data_path = next(indir.glob("*.data.npz"))
     blob = np.load(data_path)
     probs = blob["probs"].astype(np.float64)
-    threshold_idx = args.threshold_idx
+    threshold_idx = int(blob["ref_idx"])  # This is where P(X<t) ≈ 0.05
 
-    # TRUE probability (what we're estimating)
     true_p = float(np.sum(probs[:threshold_idx]))
     print(f"True P(X < {threshold_idx}) = {true_p:.6f}")
 
@@ -828,7 +827,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     # Load all compiled artifacts
     dist_items: List[Dict[str, Any]] = []
-    for data_path in sorted(indir.glob("*.data.npz"))[:1]:
+    for data_path in sorted(indir.glob("*.data.npz")):
         blob = np.load(data_path, allow_pickle=False)
         name = str(blob["dist_name"])
         qasm_path = indir / f"{name}.stateprep.qasm"
@@ -970,7 +969,7 @@ def main() -> None:
     # Aer options (GPU node)
     apr.add_argument("--device", type=str, default="GPU", choices=["CPU", "GPU"])
     apr.add_argument("--method", type=str, default="automatic", help="Aer simulation method (e.g., statevector)")
-    apr.add_argument("--shots", type=int, default=20000, help="Default shots for SamplerV2")
+    apr.add_argument("--shots", type=int, default=2000, help="Default shots for SamplerV2")
 
     apr.add_argument("--out", type=str, default="best_algo_params.json")
     apr.set_defaults(func=cmd_run)
