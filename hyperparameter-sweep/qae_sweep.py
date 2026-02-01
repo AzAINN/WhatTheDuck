@@ -419,10 +419,14 @@ def _estimate_tail_prob_iae(
         num_asset_qubits=num_asset_qubits,
         threshold_index=threshold_index,
     )
+    # problem = EstimationProblem(
+    #     state_preparation=A,
+    #     objective_qubits=[obj],
+    #     is_good_state=lambda bitstr: bitstr[obj] == "1"  # Logic check
+    # )
     problem = EstimationProblem(
         state_preparation=A,
         objective_qubits=[obj],
-        is_good_state=lambda bitstr: bitstr[obj] == "1"  # Logic check
     )
 
     # 3. Run IAE
