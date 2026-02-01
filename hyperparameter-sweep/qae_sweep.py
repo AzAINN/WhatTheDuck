@@ -483,6 +483,8 @@ def _estimate_tail_prob_iae(
         reflection_qubits=list(range(num_asset_qubits)),  # KEY FIX
         insert_barriers=False,
     )
+    print(f"    Q depth={Q.depth()}, Q gates={Q.size()}")
+    print(f"    Q qubits={Q.num_qubits}, reflection_qubits={list(range(num_asset_qubits))}")
 
     # Decompose to basis gates for Aer
     Q = Q.decompose()
