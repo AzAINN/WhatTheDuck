@@ -162,7 +162,12 @@ def create_comparison_heatmaps(
     fmt = '.0f'
     
     # Left plot: Shots
-    shots_norm = LogNorm(vmin=shots_pivot.min().min(), vmax=shots_pivot.max().max())
+    shots_min = shots_pivot.min().min()
+    shots_max = shots_pivot.max().max()
+    if shots_min > 0:
+        shots_norm = LogNorm(vmin=shots_min, vmax=shots_max)
+    else:
+        shots_norm = None
     sns.heatmap(
         shots_pivot,
         annot=True,
@@ -182,7 +187,12 @@ def create_comparison_heatmaps(
     ax1.set_yticklabels([f'{y:.3f}' for y in epsilon_vals], rotation=0)
     
     # Right plot: Grover calls
-    grover_norm = LogNorm(vmin=grover_pivot.min().min(), vmax=grover_pivot.max().max())
+    grover_min = grover_pivot.min().min()
+    grover_max = grover_pivot.max().max()
+    if grover_min > 0:
+        grover_norm = LogNorm(vmin=grover_min, vmax=grover_max)
+    else:
+        grover_norm = None
     sns.heatmap(
         grover_pivot,
         annot=True,

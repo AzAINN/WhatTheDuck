@@ -16,7 +16,6 @@ import numpy as np
 from scipy.stats import skewnorm
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import alive_progress
 
 
 # Market parameters
@@ -26,7 +25,7 @@ confidence_level = 0.95        # VaR confidence level
 
 # Multi-day and distribution settings
 T = 5                          # Number of days for multi-day VaR
-dist = "skewnorm"              # Distribution: "gaussian", "student-t", "skewnorm"
+dist = "gaussian"              # Distribution: "gaussian", "student-t", "skewnorm"
 df = 3                         # Degrees of freedom for Student-t
 skew_alpha = 7.0               # Skew parameter for skew-normal
 rho = 0.6                      # AR(1) correlation coefficient
@@ -36,7 +35,7 @@ rho = 0.6                      # AR(1) correlation coefficient
 
 # Simulation settings
 num_samples_max = 10**7        # Maximum samples
-num_samples_count = 50        # Number of sample sizes to test
+num_samples_count = 500       # Number of sample sizes to test
 theoretical_N = num_samples_max * 2 # Samples for theoretical VaR estimation
 theoretical_estimations = 1        # Averaging runs for theoretical VaR
 CPU_WORKERS = 10               # Parallel workers
@@ -121,65 +120,62 @@ def monte_carlo_var(
     return MonteCarloResult(N, var_estimate, error)
 
 
-# Estimate theoretical VaR using large N and multiple runs
-print(f"\nEstimating theoretical VaR with N={theoretical_N:,} over {theoretical_estimations} runs...")
-theoretical_vars = []
-for i in range(theoretical_estimations):
-    mc_run = monte_carlo_var(
-        theoretical_N, mu, sigma, confidence_level, 0.0, T, dist, df, skew_alpha, rho
-    )
-    theoretical_vars.append(mc_run.var_estimate)
-    print(f"  Run {i+1}/{theoretical_estimations}: VaR = {mc_run.var_estimate:.5f}")
-theoretical_var = float(np.mean(theoretical_vars))
-print(f"Theoretical VaR ({int(confidence_level*100)}%): {theoretical_var:.5f}")
-# This does two critical things:
-# It removes modeling error from the convergence study
-# It isolates probability estimation error only
-
-# Run parallel simulations
-print(f"\nRunning {len(num_samples_list)} simulations in parallel...")
-mc_results = []
-total_completed = 0
-
-with ProcessPoolExecutor(max_workers=CPU_WORKERS) as executor:
-    futures = [
-        executor.submit(
-            monte_carlo_var, N, mu, sigma, confidence_level, theoretical_var,
-            T, dist, df, skew_alpha, rho
+def main():
+    # Estimate theoretical VaR using large N and multiple runs
+    print(f"\nEstimating theoretical VaR with N={theoretical_N:,} over {theoretical_estimations} runs...")
+    theoretical_vars = []
+    for i in range(theoretical_estimations):
+        mc_run = monte_carlo_var(
+            theoretical_N, mu, sigma, confidence_level, 0.0, T, dist, df, skew_alpha, rho
         )
-        for N in num_samples_list
+        theoretical_vars.append(mc_run.var_estimate)
+        print(f"  Run {i+1}/{theoretical_estimations}: VaR = {mc_run.var_estimate:.5f}")
+    theoretical_var = float(np.mean(theoretical_vars))
+    print(f"Theoretical VaR ({int(confidence_level*100)}%): {theoretical_var:.5f}")
+    # This does two critical things:
+    # It removes modeling error from the convergence study
+    # It isolates probability estimation error only
+
+    # Run parallel simulations
+    print(f"\nRunning {len(num_samples_list)} simulations in parallel...")
+    mc_results = []
+    total_completed = 0
+
+    with ProcessPoolExecutor(max_workers=CPU_WORKERS) as executor:
+        futures = [
+            executor.submit(
+                monte_carlo_var, N, mu, sigma, confidence_level, theoretical_var,
+                T, dist, df, skew_alpha, rho
+            )
+            for N in num_samples_list
+        ]
+        
+        for future in as_completed(futures):
+            result = future.result()
+            mc_results.append(result)
+            total_completed += 1
+            percent_complete = (total_completed / len(num_samples_list)) * 100
+            print(f"  {percent_complete:5.1f}% | N={result.num_samples:>9,} | "
+                  f"VaR={result.var_estimate:.5f} | Error={result.error:.3e}")
+
+    # Sort results and extract data
+    mc_results.sort(key=lambda x: x.num_samples)
+
+    # ============================================================================
+    # WRITE CSV RESULTS
+    # ============================================================================
+
+    CSV_HEADERS = [
+        "Epsilon",
+        "N",
+        "VaR_prediction",
+        "VaR_theoretical",
+        "mu", "sigma", "confidence_level", "T", "dist", "df", "skew_alpha", "rho"
     ]
-    
-    for future in as_completed(futures):
-        result = future.result()
-        mc_results.append(result)
-        total_completed += 1
-        percent_complete = (total_completed / len(num_samples_list)) * 100
-        print(f"  {percent_complete:5.1f}% | N={result.num_samples:>9,} | "
-              f"VaR={result.var_estimate:.5f} | Error={result.error:.3e}")
 
-# Sort results and extract data
-mc_results.sort(key=lambda x: x.num_samples)
-# num_samples_list, var_results, errors = zip(*[
-#     (r.num_samples, r.var_estimate, r.error) for r in mc_results
-# ])
+    print(f"\nWriting results to {OUTPUT}...")
 
-# ============================================================================
-# WRITE CSV RESULTS
-# ============================================================================
-
-CSV_HEADERS = [
-    "Epsilon",
-    "N",
-    "VaR_prediction",
-    "VaR_theoretical",
-    "mu", "sigma", "confidence_level", "T", "dist", "df", "skew_alpha", "rho"
-]
-
-print(f"\nWriting results to {OUTPUT}...")
-
-# Episilon = error
-with alive_progress.alive_bar(len(mc_results)) as bar:
+    # Epsilon = error
     with open(OUTPUT, 'w') as f:
         f.write(','.join(CSV_HEADERS) + '\n')
         for result in mc_results:
@@ -198,4 +194,7 @@ with alive_progress.alive_bar(len(mc_results)) as bar:
                 f"{rho:.6f}"
             ]
             f.write(','.join(row) + '\n')
-            bar()
+
+
+if __name__ == "__main__":
+    main()
