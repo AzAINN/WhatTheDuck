@@ -275,7 +275,7 @@ if __name__ == "__main__":
 
     AQ_COUNT = 10
     AQ_MIN = 0.1
-    AQ_MAX = 0.05
+    AQ_MAX = 0.005
 
     epsilons = np.logspace(np.log10(E_MAX), np.log10(E_MIN), E_COUNT).tolist()
     iqae_alphas = np.linspace(AQ_MIN, AQ_MAX, AQ_COUNT).tolist()
