@@ -287,7 +287,7 @@ def _make_sampler_v2(device: str, method: str, seed: int, default_shots: int):
 
     run_options = {"shots": int(default_shots)}
 
-    return Sampler(backend_options=backend_options, run_options=run_options)
+    return Estimator(backend_options=backend_options, run_options=run_options)
 def _build_threshold_stateprep(
     stateprep_asset_only,
     num_asset_qubits: int,
