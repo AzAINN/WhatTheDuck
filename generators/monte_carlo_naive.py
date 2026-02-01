@@ -25,23 +25,23 @@ sigma = 0.20                   # Daily volatility (20%)
 confidence_level = 0.95        # VaR confidence level
 
 # Multi-day and distribution settings
-T = 5                          # Number of days for multi-day VaR
+T = 1                          # Number of days for multi-day VaR
 dist = "skewnorm"              # Distribution: "gaussian", "student-t", "skewnorm"
 df = 3                         # Degrees of freedom for Student-t
 skew_alpha = 7.0               # Skew parameter for skew-normal
-rho = 0.6                      # AR(1) correlation coefficient
+rho = 0.0                      # AR(1) correlation coefficient
 
 # Where modeling error is intentionally held fixed
 # You do not mix models during convergence plots.
 
 # Simulation settings
 num_samples_max = 10**7        # Maximum samples
-num_samples_count = 50        # Number of sample sizes to test
+num_samples_count = 250        # Number of sample sizes to test
 theoretical_N = num_samples_max * 2 # Samples for theoretical VaR estimation
 theoretical_estimations = 1        # Averaging runs for theoretical VaR
 CPU_WORKERS = 10               # Parallel workers
 
-OUTPUT = '../graphs/data/monte_carlo_naive2.csv'
+OUTPUT = '../graphs/data/monte_carlo_naive.csv'
 
 # Generate logarithmically spaced sample sizes
 num_samples_list = np.unique(
