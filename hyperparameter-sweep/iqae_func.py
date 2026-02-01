@@ -8,7 +8,6 @@ import numpy as np
 from qae_sweep import (
     _make_sampler_v2,
     _load_stateprep_qasm,
-    compute_true_var,
     _estimate_tail_prob_iae,
 )
 
@@ -16,48 +15,29 @@ from qae_sweep import (
 def run_classical_mc(probs, threshold_idx, n_samples, seed):
     rng = np.random.default_rng(seed)
     samples = rng.choice(len(probs), size=n_samples, p=probs)
-    p_hat = np.mean(samples < threshold_idx)
-    return p_hat
-
-
-def run_quantum_ae(sampler, stateprep, num_qubits, threshold_idx, epsilon, alpha_fail=0.05):
-    est = _estimate_tail_prob_iae(
-        sampler_v2=sampler,
-        stateprep_asset_only=stateprep,
-        num_asset_qubits=num_qubits,
-        threshold_index=threshold_idx,
-        epsilon=epsilon,
-        alpha_fail=alpha_fail,
-    )
-    return est.p_hat, est.cost_oracle_queries
+    return np.mean(samples < threshold_idx)
 
 
 if __name__ == '__main__':
     indir = Path("build_qasm")
-    alpha = 0.05
     seed = 42
 
-    n_samples_list = np.unique(np.logspace(1, 7, 500).astype(int))
-    epsilons = np.logspace(-3.5, -0.3, 150)
+    n_samples_list = np.unique(np.logspace(1, 7, 300).astype(int))  # Reduced from 500
+    epsilons = np.logspace(-3, -0.3, 80)  # Reduced from 150, narrower range
 
-    # Load precompiled circuits
-    print("Loading precompiled circuits...")
+    # Load precompiled
+    print("Loading circuits...")
     precompiled = {}
     for data_path in sorted(indir.glob("*.data.npz")):
         blob = np.load(data_path)
         dist_name = str(blob["dist_name"])
         probs = blob["probs"].astype(np.float64)
-        grid = blob["grid"].astype(np.float64)
         num_qubits = int(blob["num_qubits"])
         ref_idx = int(blob["ref_idx"])
         true_p = float(np.sum(probs[:ref_idx]))
-
-        qasm_path = indir / f"{dist_name}.stateprep.qasm"
-        stateprep = _load_stateprep_qasm(qasm_path)
-
+        stateprep = _load_stateprep_qasm(indir / f"{dist_name}.stateprep.qasm")
         precompiled[dist_name] = {
             "probs": probs,
-            "grid": grid,
             "stateprep": stateprep,
             "num_qubits": num_qubits,
             "ref_idx": ref_idx,
@@ -67,64 +47,62 @@ if __name__ == '__main__':
 
     results = []
 
-    # CLASSICAL
-    print(f"\nClassical MC: {len(n_samples_list) * len(precompiled)} tasks...")
+    # CLASSICAL - max parallelism
+    print(f"\nClassical: {len(n_samples_list) * len(precompiled)} tasks")
     t0 = time.time()
 
-    def classical_task(dist_name, n_samples):
+
+    def classical_task(args):
+        dist_name, n_samples = args
         d = precompiled[dist_name]
-        p_hat = run_classical_mc(d["probs"], d["ref_idx"], n_samples, seed)
-        return {
-            "method": "classical",
-            "dist": dist_name,
-            "queries": int(n_samples),
-            "epsilon": None,
-            "p_hat": p_hat,
-            "true_p": d["true_p"],
-            "error": abs(p_hat - d["true_p"]),
-        }
+        p_hat = run_classical_mc(d["probs"], d["ref_idx"], n_samples, seed + n_samples)
+        return ("classical", dist_name, int(n_samples), None, p_hat, d["true_p"], abs(p_hat - d["true_p"]))
+
+
+    classical_args = [(d, n) for d in precompiled for n in n_samples_list]
+
+    with ThreadPoolExecutor(max_workers=256) as pool:
+        results.extend(pool.map(classical_task, classical_args, chunksize=50))
+
+    print(f"Classical: {time.time() - t0:.1f}s")
+
+    # QUANTUM - more workers, GPU handles concurrency
+    print(f"\nQuantum: {len(epsilons) * len(precompiled)} tasks")
+    t0 = time.time()
+
+    # Pre-create samplers per distribution to reduce overhead
+    samplers = {d: _make_sampler_v2("GPU", "statevector", seed, 1024) for d in precompiled}
+
+
+    def quantum_task(args):
+        dist_name, eps = args
+        d = precompiled[dist_name]
+        est = _estimate_tail_prob_iae(
+            sampler_v2=samplers[dist_name],
+            stateprep_asset_only=d["stateprep"],
+            num_asset_qubits=d["num_qubits"],
+            threshold_index=d["ref_idx"],
+            epsilon=eps,
+            alpha_fail=0.05,
+        )
+        return ("quantum", dist_name, int(est.cost_oracle_queries), eps, est.p_hat, d["true_p"],
+                abs(est.p_hat - d["true_p"]))
+
+
+    quantum_args = [(d, e) for d in precompiled for e in epsilons]
 
     with ThreadPoolExecutor(max_workers=64) as pool:
-        futures = [pool.submit(classical_task, d, n) for d in precompiled for n in n_samples_list]
-        for i, f in enumerate(as_completed(futures)):
-            results.append(f.result())
-            if (i + 1) % 500 == 0:
-                print(f"  {i+1}/{len(futures)}")
+        for i, r in enumerate(pool.map(quantum_task, quantum_args, chunksize=4)):
+            results.append(r)
+            if (i + 1) % 100 == 0:
+                print(f"  {i + 1}/{len(quantum_args)} ({time.time() - t0:.0f}s)")
 
-    print(f"Classical: {time.time()-t0:.1f}s")
-
-    # QUANTUM
-    print(f"\nQuantum AE: {len(epsilons) * len(precompiled)} tasks...")
-    t0 = time.time()
-
-    def quantum_task(dist_name, eps):
-        d = precompiled[dist_name]
-        sampler = _make_sampler_v2("GPU", "statevector", seed, 1024)
-        p_hat, queries = run_quantum_ae(sampler, d["stateprep"], d["num_qubits"], d["ref_idx"], eps)
-        return {
-            "method": "quantum",
-            "dist": dist_name,
-            "queries": int(queries),
-            "epsilon": eps,
-            "p_hat": p_hat,
-            "true_p": d["true_p"],
-            "error": abs(p_hat - d["true_p"]),
-        }
-
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = [pool.submit(quantum_task, d, e) for d in precompiled for e in epsilons]
-        for i, f in enumerate(as_completed(futures)):
-            results.append(f.result())
-            if (i + 1) % 50 == 0:
-                print(f"  {i+1}/{len(futures)}")
-
-    print(f"Quantum: {time.time()-t0:.1f}s")
+    print(f"Quantum: {time.time() - t0:.1f}s")
 
     # CSV
-    out_path = Path("scaling_results.csv")
-    with open(out_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["method", "dist", "queries", "epsilon", "p_hat", "true_p", "error"])
-        writer.writeheader()
+    with open("scaling_results.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["method", "dist", "queries", "epsilon", "p_hat", "true_p", "error"])
         writer.writerows(results)
 
-    print(f"\nWrote {len(results)} rows to {out_path}")
+    print(f"\nDone: {len(results)} rows")
