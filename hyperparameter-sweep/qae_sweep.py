@@ -375,8 +375,8 @@ def _estimate_tail_prob_iae(
         epsilon: float,
         alpha_fail: float,
 ) -> EstResult:
-    print(
-        f"    STATEPREP: depth={stateprep_asset_only.depth()}, gates={stateprep_asset_only.size()}, qubits={stateprep_asset_only.num_qubits}")
+    # print(
+    #     f"    STATEPREP: depth={stateprep_asset_only.depth()}, gates={stateprep_asset_only.size()}, qubits={stateprep_asset_only.num_qubits}")
     """
     Run iterative amplitude estimation for this threshold index.
     Returns p_hat, CI, and oracle-query cost (as reported by Qiskit result when available).
