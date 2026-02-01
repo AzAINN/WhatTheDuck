@@ -868,7 +868,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     def objective(trial: optuna.Trial) -> float:
         # Algorithmic-only params to sweep
-        epsilon = trial.suggest_float("epsilon", 0.0001, 0.005, log=True)
+        epsilon = trial.suggest_float("epsilon", 0.001, 0.05, log=True)
         alpha_fail = trial.suggest_float("alpha_fail", 0.001, 0.05, log=True)
         prob_tol_mult = trial.suggest_float("prob_tol_mult", 0.05, 0.3)
 
