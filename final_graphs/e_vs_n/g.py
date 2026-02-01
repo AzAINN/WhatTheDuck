@@ -30,7 +30,7 @@ from scipy.stats import norm
 # VALUE-AT-RISK SETTINGS (match value_at_risk.py)
 # ============================================================================
 
-CSV = "../data6.csv"
+CSV = "../data8.csv"
 OUTPUT = "./e_vs_n.png"
 
 
@@ -146,7 +146,7 @@ def main():
     # Keep only relevant rows (dist = normal, alpha=0.1)
     dist = "normal"
     results = results[results['dist'] == dist]
-    results = results[results['var_alpha'] == 0.1]
+    results = results[results['var_alpha'] == 0.05]
     
     # Split into MC and QC
     results_mc = results[results['method'] == 'classical'].copy()
