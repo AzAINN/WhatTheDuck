@@ -1,7 +1,9 @@
 from pathlib import Path
 import csv
+import argparse
 import numpy as np
 from tqdm import tqdm
+from itertools import product
 
 from qae_sweep import (
     _make_sampler_v2,
@@ -9,108 +11,149 @@ from qae_sweep import (
     _estimate_tail_prob_iae,
 )
 
-def all_dist():
-    indir = Path("build_qasm")
-    seed = 42
 
-    n_samples_list = np.unique(np.logspace(1, 6, 100).astype(int))  # 100 points
-    epsilons = np.clip(np.logspace(-2.5, -0.3, 100), a_min=1e-6, a_max=0.49)
+def run_classical_mc(probs, threshold_idx, n_samples, seed):
+    rng = np.random.default_rng(seed)
+    samples = rng.choice(len(probs), size=n_samples, p=probs)
+    return np.mean(samples < threshold_idx)
 
-    # Load
+
+def get_threshold_idx(probs, alpha):
+    """Get threshold index for given alpha (VaR level)."""
+    cdf = np.cumsum(probs)
+    return int(np.searchsorted(cdf, alpha, side="left"))
+
+
+def run_all_dists(indir, outfile, seed=42):
+    n_samples_list = np.unique(np.logspace(1, 7, 100).astype(int))
+    epsilons = np.clip(np.logspace(-4, -0.3, 80), 1e-6, 0.49)
+    alpha_fails = [0.01, 0.05, 0.1]  # Confidence: 99%, 95%, 90%
+    var_alphas = [0.01, 0.05, 0.10]  # VaR levels: 1%, 5%, 10%
+
+    # Load circuits
     precompiled = {}
     for data_path in sorted(indir.glob("*.data.npz")):
         blob = np.load(data_path)
         dist_name = str(blob["dist_name"])
         probs = blob["probs"].astype(np.float64)
         num_qubits = int(blob["num_qubits"])
-        ref_idx = int(blob["ref_idx"])
-        true_p = float(np.sum(probs[:ref_idx]))
         stateprep = _load_stateprep_qasm(indir / f"{dist_name}.stateprep.qasm")
-        precompiled[dist_name] = (probs, stateprep, num_qubits, ref_idx, true_p)
-        print(f"{dist_name}: ref_idx={ref_idx}, true_p={true_p:.6f}")
+        precompiled[dist_name] = (probs, stateprep, num_qubits)
+        print(f"{dist_name}: loaded")
 
     sampler = _make_sampler_v2("GPU", "statevector", seed, 1024)
 
-    with open("scaling_results.csv", "w", newline="") as f:
+    with open(outfile, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["method", "dist", "queries", "epsilon", "p_hat", "true_p", "error"])
+        writer.writerow(["method", "dist", "var_alpha", "queries", "epsilon", "alpha_fail", "p_hat", "true_p", "error"])
+
+        # Classical - vary var_alpha
+        rng = np.random.default_rng(seed)
+        for dist_name, (probs, _, _) in tqdm(precompiled.items(), desc="Classical"):
+            for var_alpha in var_alphas:
+                ref_idx = get_threshold_idx(probs, var_alpha)
+                true_p = float(np.sum(probs[:ref_idx]))
+                for n in n_samples_list:
+                    samples = rng.choice(len(probs), size=n, p=probs)
+                    p_hat = np.mean(samples < ref_idx)
+                    writer.writerow(["classical", dist_name, var_alpha, n, "", "", p_hat, true_p, abs(p_hat - true_p)])
+            f.flush()
+
+        # Quantum - vary epsilon, alpha_fail, var_alpha
+        total = len(precompiled) * len(var_alphas) * len(epsilons) * len(alpha_fails)
+        pbar = tqdm(total=total, desc="Quantum")
+
+        for dist_name, (probs, stateprep, num_qubits) in precompiled.items():
+            for var_alpha in var_alphas:
+                ref_idx = get_threshold_idx(probs, var_alpha)
+                true_p = float(np.sum(probs[:ref_idx]))
+
+                for eps, af in product(epsilons, alpha_fails):
+                    est = _estimate_tail_prob_iae(
+                        sampler_v2=sampler,
+                        stateprep_asset_only=stateprep,
+                        num_asset_qubits=num_qubits,
+                        threshold_index=ref_idx,
+                        epsilon=eps,
+                        alpha_fail=af,
+                    )
+                    writer.writerow(
+                        ["quantum", dist_name, var_alpha, est.cost_oracle_queries, eps, af, est.p_hat, true_p,
+                         abs(est.p_hat - true_p)])
+                    pbar.update(1)
+                f.flush()
+        pbar.close()
+
+    print(f"Done: {outfile}")
+
+
+def run_single_dist(indir, outfile, dist_name="normal", seed=42):
+    n_samples_list = np.unique(np.logspace(1, 7, 200).astype(int))
+    epsilons = np.clip(np.logspace(-4, -0.3, 150), 1e-6, 0.49)
+    alpha_fails = [0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2]
+    var_alphas = [0.01, 0.02, 0.05, 0.10]
+
+    data_path = indir / f"{dist_name}.data.npz"
+    blob = np.load(data_path)
+    probs = blob["probs"].astype(np.float64)
+    num_qubits = int(blob["num_qubits"])
+    stateprep = _load_stateprep_qasm(indir / f"{dist_name}.stateprep.qasm")
+    print(f"{dist_name}: num_qubits={num_qubits}")
+
+    sampler = _make_sampler_v2("GPU", "statevector", seed, 1024)
+
+    with open(outfile, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["method", "dist", "var_alpha", "queries", "epsilon", "alpha_fail", "p_hat", "true_p", "error"])
 
         # Classical
         rng = np.random.default_rng(seed)
-        for dist_name, (probs, _, _, ref_idx, true_p) in tqdm(precompiled.items(), desc="Dists (classical)"):
-            for n in tqdm(n_samples_list, desc=f"{dist_name}", leave=False):
+        for var_alpha in tqdm(var_alphas, desc="Classical alphas"):
+            ref_idx = get_threshold_idx(probs, var_alpha)
+            true_p = float(np.sum(probs[:ref_idx]))
+            for n in n_samples_list:
                 samples = rng.choice(len(probs), size=n, p=probs)
                 p_hat = np.mean(samples < ref_idx)
-                writer.writerow(["classical", dist_name, n, "", p_hat, true_p, abs(p_hat - true_p)])
-            f.flush()
+                writer.writerow(["classical", dist_name, var_alpha, n, "", "", p_hat, true_p, abs(p_hat - true_p)])
+        f.flush()
 
         # Quantum
-        for dist_name, (probs, stateprep, num_qubits, ref_idx, true_p) in tqdm(precompiled.items(), desc="Dists (quantum)"):
-            for eps in tqdm(epsilons, desc=f"{dist_name}", leave=False):
+        total = len(var_alphas) * len(epsilons) * len(alpha_fails)
+        pbar = tqdm(total=total, desc="Quantum")
+
+        for var_alpha in var_alphas:
+            ref_idx = get_threshold_idx(probs, var_alpha)
+            true_p = float(np.sum(probs[:ref_idx]))
+
+            for eps, af in product(epsilons, alpha_fails):
                 est = _estimate_tail_prob_iae(
                     sampler_v2=sampler,
                     stateprep_asset_only=stateprep,
                     num_asset_qubits=num_qubits,
                     threshold_index=ref_idx,
                     epsilon=eps,
-                    alpha_fail=0.05,
+                    alpha_fail=af,
                 )
-                writer.writerow(["quantum", dist_name, est.cost_oracle_queries, eps, est.p_hat, true_p, abs(est.p_hat - true_p)])
+                writer.writerow(["quantum", dist_name, var_alpha, est.cost_oracle_queries, eps, af, est.p_hat, true_p,
+                                 abs(est.p_hat - true_p)])
+                pbar.update(1)
             f.flush()
+        pbar.close()
 
-    print("Done")
+    print(f"Done: {outfile}")
+
 
 if __name__ == '__main__':
-    indir = Path("build_qasm")
-    seed = 42
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=["all", "single"], required=True)
+    parser.add_argument("--indir", default="build_qasm_10")
+    parser.add_argument("--dist", default="normal")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
 
-    n_samples_list = np.unique(np.logspace(1, 6, 100).astype(int))  # 100 points
-    epsilons = np.clip(np.logspace(-2.5, -0.3, 1000), a_min=1e-6, a_max=0.49)  # 1000 points
+    indir = Path(args.indir)
 
-    # Load
-    precompiled = {}
-    for data_path in sorted(indir.glob("*.data.npz")):
-        blob = np.load(data_path)
-        dist_name = str(blob["dist_name"])
-        probs = blob["probs"].astype(np.float64)
-        num_qubits = int(blob["num_qubits"])
-        ref_idx = int(blob["ref_idx"])
-        true_p = float(np.sum(probs[:ref_idx]))
-        stateprep = _load_stateprep_qasm(indir / f"{dist_name}.stateprep.qasm")
-        precompiled[dist_name] = (probs, stateprep, num_qubits, ref_idx, true_p)
-        print(f"{dist_name}: ref_idx={ref_idx}, true_p={true_p:.6f}")
-
-    sampler = _make_sampler_v2("GPU", "statevector", seed, 1024)
-
-    with open("scaling_results.csv", "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["method", "dist", "queries", "epsilon", "p_hat", "true_p", "error"])
-
-        # Classical - skip or run only on gaussian
-        rng = np.random.default_rng(seed)
-        for dist_name, (probs, _, _, ref_idx, true_p) in tqdm(precompiled.items(), desc="Dists (classical)"):
-            if dist_name != "gaussian":  # Skip non-gaussian
-                continue
-            for n in tqdm(n_samples_list, desc=f"{dist_name}", leave=False):
-                samples = rng.choice(len(probs), size=n, p=probs)
-                p_hat = np.mean(samples < ref_idx)
-                writer.writerow(["classical", dist_name, n, "", p_hat, true_p, abs(p_hat - true_p)])
-            f.flush()
-
-        # Quantum - only gaussian with 1000 points
-        for dist_name, (probs, stateprep, num_qubits, ref_idx, true_p) in tqdm(precompiled.items(), desc="Dists (quantum)"):
-            if dist_name != "gaussian":  # Skip non-gaussian
-                continue
-            for eps in tqdm(epsilons, desc=f"{dist_name}", leave=False):
-                est = _estimate_tail_prob_iae(
-                    sampler_v2=sampler,
-                    stateprep_asset_only=stateprep,
-                    num_asset_qubits=num_qubits,
-                    threshold_index=ref_idx,
-                    epsilon=eps,
-                    alpha_fail=0.05,
-                )
-                writer.writerow(["quantum", dist_name, est.cost_oracle_queries, eps, est.p_hat, true_p, abs(est.p_hat - true_p)])
-            f.flush()
-
-    print("Done")
+    if args.mode == "all":
+        run_all_dists(indir, "scaling_all_dists.csv", args.seed)
+    else:
+        run_single_dist(indir, f"scaling_{args.dist}_detailed.csv", args.dist, args.seed)

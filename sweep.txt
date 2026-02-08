@@ -1,0 +1,118 @@
+(.venv) (base) user@qbraid:~/WhatTheDuck/hyperparameter-sweep$ python qae_sweep.py run --indir build_qasm --trials 40 --alpha 0.05 --seed 395 --device GPU --method statevector --shots 1024 --max-steps 64 --out best_algo_params.json
+    QASM loaded and decomposed: depth=239, gates=253
+    QASM loaded and decomposed: depth=239, gates=253
+    QASM loaded and decomposed: depth=239, gates=253
+    QASM loaded and decomposed: depth=239, gates=253
+    QASM loaded and decomposed: depth=239, gates=253
+    QASM loaded and decomposed: depth=239, gates=253
+    QASM loaded and decomposed: depth=239, gates=253
+    QASM loaded and decomposed: depth=239, gates=253
+[I 2026-02-01 09:40:55,490] A new study created in memory with name: no-name-9f0bbc37-0555-44d3-a80c-d68199ad9a15
+  [mixture] var_hat=2.7323, ref=0.7008, err=2.898876, cost=99328
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=129024
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=261120
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=216064
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=205824
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=262144
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=248832
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=156672
+[I 2026-02-01 09:45:11,843] Trial 0 finished with value: 902592.6063031363 and parameters: {'epsilon': 0.006692086373513683, 'alpha_fail': 0.0020759939495991315, 'prob_tol_mult': 0.09638261864651872}. Best is trial 0 with value: 902592.6063031363.
+  [normal] var_hat=-2.0472, ref=-1.6693, err=0.226415, cost=33792
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=55296
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=50376
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=51400
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=53248
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=54472
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=52224
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=56320
+[I 2026-02-01 09:46:44,149] Trial 1 finished with value: 165275.86192083114 and parameters: {'epsilon': 0.04155795912741327, 'alpha_fail': 0.009438720724508336, 'prob_tol_mult': 0.14524612246196622}. Best is trial 1 with value: 165275.86192083114.
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=610304
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=732160
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=564224
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=704512
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=723968
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=786432
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=769024
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=829440
+[I 2026-02-01 10:00:37,515] Trial 2 finished with value: 805807.9562745824 and parameters: {'epsilon': 0.0028836541831998635, 'alpha_fail': 0.0050427457112110635, 'prob_tol_mult': 0.191384377311403}. Best is trial 1 with value: 165275.86192083114.
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=46080
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=43008
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=46080
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=47104
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=36864
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=44032
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=52224
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=48128
+[I 2026-02-01 10:02:07,843] Trial 3 finished with value: 136239.95627458248 and parameters: {'epsilon': 0.01320798598961726, 'alpha_fail': 0.001719277515863853, 'prob_tol_mult': 0.06050277191263494}. Best is trial 3 with value: 136239.95627458248.
+  [mixture] var_hat=1.9764, ref=0.7008, err=1.820225, cost=493568
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=500736
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=592896
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=523264
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=613376
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=585728
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=611328
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=722944
+[I 2026-02-01 10:13:20,869] Trial 4 finished with value: 1042999.9774359731 and parameters: {'epsilon': 0.0023756811951597917, 'alpha_fail': 0.0015301345178334908, 'prob_tol_mult': 0.13615743654954438}. Best is trial 3 with value: 136239.95627458248.
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=460800
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=500736
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=630784
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=501760
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=628736
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=599040
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=626688
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=702464
+[I 2026-02-01 10:25:02,690] Trial 5 finished with value: 672175.9562745824 and parameters: {'epsilon': 0.00374622823447944, 'alpha_fail': 0.0013966830850741518, 'prob_tol_mult': 0.24551877615226508}. Best is trial 3 with value: 136239.95627458248.
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=62464
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=62464
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=59392
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=61440
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=56320
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=53248
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=57344
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=73728
+[I 2026-02-01 10:26:49,013] Trial 6 finished with value: 151599.95627458248 and parameters: {'epsilon': 0.017188176268426798, 'alpha_fail': 0.02266790975378456, 'prob_tol_mult': 0.19468135554052918}. Best is trial 3 with value: 136239.95627458248.
+  [student_t] var_hat=7.6408, ref=-2.3325, err=4.275862, cost=388096
+  [normal] var_hat=-0.0315, ref=-1.6693, err=0.981132, cost=326656
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=598016
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=576512
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=543744
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=704512
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=707584
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=762880
+[I 2026-02-01 10:38:09,545] Trial 7 finished with value: 1708962.9095586478 and parameters: {'epsilon': 0.003626981947382424, 'alpha_fail': 0.004036036289844553, 'prob_tol_mult': 0.054097493052509396}. Best is trial 3 with value: 136239.95627458248.
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=319488
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=229376
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=398336
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=365568
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=375808
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=309248
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=349184
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=497664
+[I 2026-02-01 10:45:37,431] Trial 8 finished with value: 446383.9562745825 and parameters: {'epsilon': 0.0061302008086011805, 'alpha_fail': 0.002488345874719672, 'prob_tol_mult': 0.2561378212066728}. Best is trial 3 with value: 136239.95627458248.
+  [normal] var_hat=-0.0315, ref=-1.6693, err=0.981132, cost=34816
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=50176
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=44032
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=48128
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=55296
+  [lognormal] var_hat=1.6238, ref=1.6238, err=0.000000, cost=48128
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=48128
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=51200
+[I 2026-02-01 10:47:16,870] Trial 9 finished with value: 315530.8919138216 and parameters: {'epsilon': 0.028516748232597294, 'alpha_fail': 0.0022915286670425208, 'prob_tol_mult': 0.11095876175729831}. Best is trial 3 with value: 136239.95627458248.
+  [student_t] var_hat=7.6408, ref=-2.3325, err=4.275862, cost=46080
+  [mixture] var_hat=1.9764, ref=0.7008, err=1.820225, cost=39936
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=57344
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=55296
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=53248
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=66560
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=52224
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=56320
+[I 2026-02-01 10:48:50,001] Trial 10 finished with value: 1295942.4708903697 and parameters: {'epsilon': 0.015177015601746419, 'alpha_fail': 0.011891966654847382, 'prob_tol_mult': 0.05859282971622638}. Best is trial 3 with value: 136239.95627458248.
+  [normal] var_hat=-1.7323, ref=-1.6693, err=0.037736, cost=65536
+  [lognormal] var_hat=1.6112, ref=1.6238, err=0.007714, cost=59392
+  [beta] var_hat=0.0630, ref=0.0630, err=0.000000, cost=70656
+  [mixture] var_hat=0.7008, ref=0.7008, err=0.000000, cost=71680
+  [skew_normal] var_hat=-0.1096, ref=-0.0795, err=0.378305, cost=70656
+  [student_t] var_hat=-2.3325, ref=-2.3325, err=0.000000, cost=75776
+  [exponential] var_hat=0.0472, ref=0.0472, err=0.000000, cost=59392
+  [pareto] var_hat=1.0000, ref=1.0000, err=0.000000, cost=70656
+[I 2026-02-01 10:50:43,054] Trial 11 finished with value: 158767.95627458248 and parameters: {'epsilon': 0.015641277209860666, 'alpha_fail': 0.03791604054258078, 'prob_tol_mult': 0.20173360339244414}. Best is trial 3 with value: 136239.95627458248.
