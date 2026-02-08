@@ -1,9 +1,12 @@
 classiq
 jupyter
 matplotlib
-scipy
 numpy
+pandas
+scipy
+streamlit
+yfinance
 optuna
 qiskit-algorithms==0.3.1
-qiskit-aer-gpu==0.15.1
+qiskit-aer-gpu-cu11
 qiskit-algorithms==0.3.1
